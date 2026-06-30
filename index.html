@@ -234,6 +234,31 @@
   .help code { background: var(--muted); padding: 1px 6px; border-radius: 6px; font-size: .8em; border: 1px solid var(--border); }
   .sample-note { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--accent) 12%, white); border: 1px solid color-mix(in srgb, var(--accent) 28%, white); color: #92400e; border-radius: var(--r-md); padding: 11px 14px; font-size: .85rem; font-weight: 500; margin-bottom: 16px; }
   .sample-note svg { width: 18px; height: 18px; flex: none; }
+
+  /* ---------- Города и районы ---------- */
+  .toolbar { margin-bottom: 6px; }
+  .citynav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 10px; margin: 0 -16px; scrollbar-width: none; }
+  .citynav::-webkit-scrollbar { display: none; }
+  .citychip { flex: none; border: 1px solid var(--border-strong); background: var(--surface); border-radius: 999px;
+              padding: 8px 15px; font-weight: 700; font-size: .86rem; color: var(--fg-soft); box-shadow: var(--shadow-sm);
+              transition: color .15s ease, border-color .15s ease; cursor: pointer; }
+  .citychip:hover { color: var(--primary); border-color: var(--primary); }
+  .citychip .cnt { color: var(--fg-muted); font-weight: 600; font-size: .8em; margin-left: 5px; }
+  .city-sec { margin-top: 30px; scroll-margin-top: 92px; }
+  .city-head { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
+  .city-head h2 { font-family: var(--ff-display); font-size: 1.7rem; margin: 0; letter-spacing: -.015em; }
+  .city-head .city-cnt { font-size: .82rem; color: var(--fg-muted); font-weight: 600; }
+  .city-hotel { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: .8rem; font-weight: 600;
+                color: var(--fg-soft); background: var(--muted); border: 1px solid var(--border-strong); padding: 5px 11px; border-radius: 999px; }
+  .city-hotel:hover { background: var(--surface); }
+  .city-hotel svg { width: 14px; height: 14px; color: var(--primary); }
+  .city-note { background: color-mix(in srgb, var(--secondary) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--secondary) 18%, var(--border));
+               border-radius: var(--r-md); padding: 9px 13px; font-size: .84rem; color: var(--fg-soft); margin-top: 11px; }
+  .area-sec { margin-top: 18px; }
+  .area-head { display: flex; align-items: center; gap: 7px; font-family: var(--ff-display); font-size: 1.08rem; color: var(--secondary); margin: 0 0 11px;
+               padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+  .area-head svg { width: 16px; height: 16px; flex: none; }
+  .area-head .acnt { font-family: var(--ff-body); font-size: .72rem; color: var(--fg-muted); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -254,65 +279,27 @@
       <div class="lbl">посещено</div>
     </div>
   </div>
-  <div class="seg-wrap">
-    <div class="seg" role="tablist">
-      <button id="tabDays" role="tab" aria-selected="true" onclick="setView('days')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
-        По дням
-      </button>
-      <button id="tabCatalog" role="tab" aria-selected="false" onclick="setView('catalog')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
-        Все места
-      </button>
-    </div>
-  </div>
 </header>
 
 <main>
-  <div class="sample-note" id="sampleNote">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-    <span>Это <b>пример-образец</b>. Пришлите свои даты, города и список мест — я заполню реальными данными. Структура для редактирования внизу страницы.</span>
+  <div class="toolbar">
+    <label class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="search" id="searchInput" placeholder="Поиск места или района…" oninput="renderPlaces()" />
+    </label>
   </div>
-
-  <!-- ВИД: ПО ДНЯМ -->
-  <section id="viewDays">
-    <div class="logi">
-      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 15 6M9 12h6M9 18h6M5 6h.01M5 12h.01M5 18h.01"/></svg>Каркас поездки (фиксированные точки)</h3>
-      <ul>
-        <li><b>8 июля</b> — прилёт в Токио ~22:00 → заселение, конбини, спать</li>
-        <li><b>9–14 июля</b> — база Токио (отель в Синдзюку); днём 14-го лёгкий день</li>
-        <li><b>14 июля</b> — ~18:00 на вокзал → 19:00 синкансэн → ~22:00 Осака</li>
-        <li><b>15–19 июля</b> — база Осака (отель у Нихонбаси) + дни-трипы Киото и Нара</li>
-        <li><b>20 июля</b> — вылет 09:00 из KIX → выезд ~05:30 или ночь у аэропорта</li>
-      </ul>
-      <p class="logi-hint">Дни ниже — подвижные: меняйте порядок кнопками ↑/↓ в заголовке дня. Дни-трипы (Фудзи, Киото, Нара) ставьте на самый ясный прогноз.</p>
-      <button class="logi-reset" id="resetOrder" hidden onclick="resetOrder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg>Вернуть исходный порядок</button>
-    </div>
-    <nav class="daynav" id="dayNav" aria-label="Дни поездки"></nav>
-    <div id="daysContainer"></div>
-  </section>
-
-  <!-- ВИД: ВСЕ МЕСТА -->
-  <section id="viewCatalog" class="hidden">
-    <div class="filters">
-      <label class="search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" id="searchInput" placeholder="Поиск места…" oninput="renderCatalog()" />
-      </label>
-      <div id="cityFilters"></div>
-    </div>
-    <div id="catGrid" class="grid"></div>
-    <p class="empty hidden" id="catEmpty">Ничего не найдено.</p>
-  </section>
+  <nav class="citynav" id="cityNav" aria-label="Города"></nav>
+  <div id="placesContainer"></div>
+  <p class="empty hidden" id="emptyMsg">Ничего не найдено.</p>
 
   <div class="help">
     <h3>Как редактировать</h3>
-    <p>Весь маршрут хранится в одном блоке данных в конце файла <code>index.html</code> (ищите <code>const TRIP</code>, <code>PLACES</code>, <code>DAYS</code>).</p>
+    <p>Все места хранятся в блоке <code>PLACES</code> в конце файла <code>index.html</code>. Группировка строится автоматически: <b>город</b> (<code>city</code>) → <b>район</b> (<code>area</code>).</p>
     <ul>
-      <li><b>PLACES</b> — каталог всех мест с полями: район, категория, часы работы, станция, нужна ли бронь, приоритет.</li>
-      <li><b>DAYS</b> — план по дням; пункты ссылаются на место через <code>placeId</code>, плюс можно добавить еду/переезд/отдых.</li>
+      <li>Чтобы перенести место в другой город или район — поменяйте поля <code>city</code> / <code>area</code>.</li>
+      <li>Поля места: категория, часы работы, станция, бронь, приоритет, координаты.</li>
       <li>Отметки «посещено» сохраняются в браузере (localStorage) — у каждого устройства свои.</li>
-      <li>Кнопка «В картах» открывает Google Maps по координатам или названию.</li>
+      <li>Кнопка «В картах» открывает Google Maps по координатам.</li>
     </ul>
   </div>
 </main>
@@ -850,28 +837,71 @@ function updateProgress() {
   document.getElementById("totCount").textContent = PLACES.length;
 }
 
-function setView(v) {
-  const days = v === "days";
-  document.getElementById("viewDays").classList.toggle("hidden", !days);
-  document.getElementById("viewCatalog").classList.toggle("hidden", days);
-  document.getElementById("tabDays").setAttribute("aria-selected", days);
-  document.getElementById("tabCatalog").setAttribute("aria-selected", !days);
-  localStorage.setItem("japan2026_view", v);
+// ---- Группировка: город → район ----
+const CITY_ORDER = ["Токио", "Камакура", "Фудзи", "Осака", "Киото", "Нара"];
+const CITY_NOTE = {
+  "Камакура": "День-трип из Токио — поезд ~1 ч (JR Shōnan-Shinjuku Line).",
+  "Фудзи": "День-трип из Токио — автобус из Синдзюку ~2 ч (бронь заранее). Гора часто в облаках — лучше ясным утром.",
+  "Осака": "База Осаки. Вылет 20 июля 09:00 из KIX — выезжать ~05:30 или подумать о ночи у аэропорта.",
+  "Киото": "День-трип из Осаки — поезд 15–45 мин (JR / Hankyu / Keihan).",
+  "Нара": "День-трип из Осаки — поезд ~45 мин (Kintetsu / JR).",
+};
+const CITY_HOTEL = { "Токио": HOTELS.tokyo, "Осака": HOTELS.osaka };
+const PIN_ICON = '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>';
+
+function orderedCities() {
+  const present = [...new Set(PLACES.map(p => p.city))];
+  const ranked = CITY_ORDER.filter(c => present.includes(c));
+  present.forEach(c => { if (!ranked.includes(c)) ranked.push(c); });
+  return ranked;
 }
-function jumpDay(i) {
-  document.querySelectorAll(".daychip").forEach((c, k) => c.setAttribute("aria-current", k===i));
-  document.getElementById("day-"+i)?.scrollIntoView({ behavior: "smooth", block: "start" });
+function renderPlaces() {
+  const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
+  const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
+  const cont = document.getElementById("placesContainer");
+  const nav = document.getElementById("cityNav");
+  let html = "", navHtml = "", any = false;
+
+  orderedCities().forEach((city, ci) => {
+    const inCity = PLACES.filter(p => p.city === city && match(p));
+    if (!inCity.length) return;
+    any = true;
+    navHtml += `<button class="citychip" onclick="jumpCity(${ci})">${city}<span class="cnt">${inCity.length}</span></button>`;
+
+    const areas = [];
+    inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+
+    const body = areas.map(a => {
+      const cards = inCity.filter(p => (p.area || "—") === a);
+      return `<div class="area-sec">
+        <h3 class="area-head">${svg(PIN_ICON)}${a}<span class="acnt">${cards.length}</span></h3>
+        <div class="grid">${cards.map(p => placeCard(p)).join("")}</div>
+      </div>`;
+    }).join("");
+
+    const hotel = CITY_HOTEL[city], note = CITY_NOTE[city];
+    html += `<section class="city-sec" id="city-${ci}">
+      <div class="city-head">
+        <h2>${city}</h2>
+        <span class="city-cnt">${inCity.length} мест</span>
+        ${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}
+      </div>
+      ${note ? `<div class="city-note">${note}</div>` : ""}
+      ${body}
+    </section>`;
+  });
+
+  cont.innerHTML = html;
+  nav.innerHTML = navHtml;
+  document.getElementById("emptyMsg").classList.toggle("hidden", any);
 }
+function jumpCity(ci) { document.getElementById("city-" + ci)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
 document.getElementById("tripSub").textContent = TRIP.subtitle;
-document.getElementById("sampleNote").classList.toggle("hidden", !TRIP.isSample);
-renderDays();
-renderCityFilters();
-renderCatalog();
+renderPlaces();
 updateProgress();
-setView(localStorage.getItem("japan2026_view") || "days");
 </script>
 </body>
 </html>
