@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   /* ============================================================
      Дизайн-система (ui-ux-pro-max · "Adventure orange + map teal")
@@ -292,9 +294,54 @@
                padding-bottom: 7px; border-bottom: 1px solid var(--border); }
   .area-head svg { width: 16px; height: 16px; flex: none; }
   .area-head .acnt { font-family: var(--ff-body); font-size: .72rem; color: var(--fg-muted); font-weight: 600; }
+
+  /* ---------- Экран загрузки ---------- */
+  #splash { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+            background: linear-gradient(160deg, var(--bg), #ffe9d6);
+            transition: opacity .5s ease, visibility .5s ease; }
+  #splash.hide { opacity: 0; visibility: hidden; }
+  .splash-inner { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .splash-mark { width: 76px; height: 76px; border-radius: 24px; display: grid; place-items: center; color: #fff;
+                 background: linear-gradient(140deg, var(--primary), var(--accent)); box-shadow: var(--shadow-lg); }
+  .splash-mark svg { width: 40px; height: 40px; }
+  .splash-title { font-family: var(--ff-display); font-size: 1.7rem; color: var(--fg); letter-spacing: -.01em; }
+  .splash-sub { font-size: .9rem; color: var(--fg-soft); margin-top: -4px; }
+  .splash-spinner { width: 30px; height: 30px; margin-top: 10px; border-radius: 50%;
+                    border: 3px solid color-mix(in srgb, var(--primary) 25%, white); border-top-color: var(--primary);
+                    animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .splash-spinner { animation: none; } }
+
+  /* ---------- Кнопка «В план» ---------- */
+  .btn-plan { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 600; cursor: pointer;
+              color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, white);
+              border: 1px solid color-mix(in srgb, var(--accent) 24%, white); padding: 7px 12px; border-radius: 999px; transition: all .15s ease; }
+  .btn-plan:hover { background: color-mix(in srgb, var(--accent) 16%, white); }
+  .btn-plan svg { width: 14px; height: 14px; }
+  .btn-plan.in { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  /* ---------- Вкладка плана + карта ---------- */
+  .cattabs[hidden] { display: none; }
+  .tab.plan-tab.active { background: var(--accent); border-color: var(--accent); }
+  .planmap { width: 100%; height: 300px; border-radius: var(--r-lg); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--muted); }
+  .map-fallback { width: 100%; height: 100%; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--fg-muted); font-size: .9rem; }
+  .plan-note { font-size: .8rem; color: var(--fg-muted); margin: 8px 2px 0; }
+  .plan-empty { text-align: center; color: var(--fg-soft); background: var(--surface); border: 1px dashed var(--border-strong);
+                border-radius: var(--r-lg); padding: 40px 20px; font-size: .92rem; margin-top: 10px; }
 </style>
 </head>
 <body>
+
+<div id="splash">
+  <div class="splash-inner">
+    <span class="splash-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+    </span>
+    <div class="splash-title">Япония 2026</div>
+    <div class="splash-sub">8–20 июля · Токио + Осака</div>
+    <div class="splash-spinner" aria-hidden="true"></div>
+  </div>
+</div>
 
 <header class="topbar">
   <div class="topbar-row">
@@ -768,6 +815,14 @@ const LS_KEY = "japan2026_visited";
 let visited = new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]"));
 const saveVisited = () => localStorage.setItem(LS_KEY, JSON.stringify([...visited]));
 
+// «Мой план» — что хочу посетить
+const PLAN_KEY = "japan2026_plan";
+let plan = new Set(JSON.parse(localStorage.getItem(PLAN_KEY) || "[]"));
+const savePlan = () => localStorage.setItem(PLAN_KEY, JSON.stringify([...plan]));
+const PLUS_ICON = '<path d="M12 5v14M5 12h14"/>';
+const CHECK_ICON = '<path d="M20 6 9 17l-5-5"/>';
+let planMapObj = null;
+
 // Отели-базы (координаты примерные — поправьте при заселении)
 const HOTELS = {
   tokyo: { name: "MI•HOTEL ATELIER SHINJUKU", local: "北新宿4-12-21 · Синдзюку", city: "Токио",
@@ -856,6 +911,7 @@ function placeCard(p, withChk = true) {
         <div class="badges">${badges.join("")}</div>
         <div class="card-actions">
           <a class="btn-map" href="${mapsLink(p)}" target="_blank" rel="noopener">${svg('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>')}В картах</a>
+          <button class="btn-plan ${plan.has(p.id) ? "in" : ""}" onclick="togglePlan('${p.id}')">${svg(plan.has(p.id) ? CHECK_ICON : PLUS_ICON)}${plan.has(p.id) ? "В плане" : "В план"}</button>
           ${withChk ? `<label class="chk"><input type="checkbox" ${done ? "checked" : ""} onchange="toggle('${p.id}')"/>посетили</label>` : ""}
         </div>
       </div>
@@ -975,11 +1031,12 @@ function renderTabs() {
     const n = PLACES.filter(p => p.city === c).length;
     h += `<button class="tab ${activeCity===c?"active":""}" onclick="setCity('${c}')">${c}<span class="cnt">${n}</span></button>`;
   });
+  h += `<button class="tab plan-tab ${activeCity==="plan"?"active":""}" onclick="setCity('plan')">★ Мой план<span class="cnt">${plan.size}</span></button>`;
   document.getElementById("cityTabs").innerHTML = h;
 }
 function renderAreaTabs() {
   const el = document.getElementById("areaTabs");
-  if (activeCity === "all") { el.hidden = true; el.innerHTML = ""; return; }
+  if (activeCity === "all" || activeCity === "plan") { el.hidden = true; el.innerHTML = ""; return; }
   const inCity = PLACES.filter(p => p.city === activeCity);
   let h = `<button class="areatab ${activeArea==="all"?"active":""}" onclick="setArea('all')">Все районы<span class="cnt">${inCity.length}</span></button>`;
   cityAreas(activeCity).forEach(a => {
@@ -1035,6 +1092,9 @@ function placesWord(n) {
 }
 
 function renderPlaces() {
+  const catEl = document.getElementById("catTabs");
+  if (activeCity === "plan") { catEl.hidden = true; renderPlan(); return; }
+  catEl.hidden = false;
   const base = scopeList();
   renderCatTabs(base);
   const visible = base.filter(p => activeCat === "all" || p.cat === activeCat);
@@ -1072,6 +1132,81 @@ function renderPlaces() {
   document.getElementById("emptyMsg").classList.toggle("hidden", any);
 }
 
+// ---- Мой план (конструктор) ----
+function togglePlan(id) {
+  if (plan.has(id)) plan.delete(id); else plan.add(id);
+  savePlan();
+  renderTabs();
+  if (activeCity === "plan") { renderPlaces(); return; }
+  document.querySelectorAll(`.card[data-id="${id}"] .btn-plan`).forEach(b => {
+    const inp = plan.has(id);
+    b.classList.toggle("in", inp);
+    b.innerHTML = svg(inp ? CHECK_ICON : PLUS_ICON) + (inp ? "В плане" : "В план");
+  });
+}
+function planBase(city) { return (city === "Осака" || city === "Киото" || city === "Нара") ? HOTELS.osaka : HOTELS.tokyo; }
+function cityPlanRouteUrl(city, places) {
+  if (!places.length) return null;
+  const base = planBase(city);
+  const stops = [base, ...places, base];
+  const loc = p => (p.lat != null && p.lng != null) ? `${p.lat},${p.lng}` : `${p.name} ${p.city} Japan`;
+  const enc = encodeURIComponent;
+  const waypoints = stops.slice(1, -1).slice(0, 9).map(p => enc(loc(p))).join("%7C");
+  let u = `https://www.google.com/maps/dir/?api=1&origin=${enc(loc(stops[0]))}&destination=${enc(loc(stops[stops.length-1]))}&travelmode=transit`;
+  if (waypoints) u += `&waypoints=${waypoints}`;
+  return u;
+}
+function initPlanMap(planned) {
+  const el = document.getElementById("planMap");
+  if (!el) return;
+  if (typeof L === "undefined") { el.innerHTML = '<div class="map-fallback">Карта появится при наличии интернета (онлайн-карта OpenStreetMap).</div>'; return; }
+  if (planMapObj) { planMapObj.remove(); planMapObj = null; }
+  const pts = planned.filter(p => p.lat != null && p.lng != null);
+  const map = L.map(el, { scrollWheelZoom: false });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+  if (pts.length) {
+    const group = L.featureGroup(pts.map(p => L.marker([p.lat, p.lng]).bindPopup(`<b>${p.name}</b><br>${p.area || ""}`))).addTo(map);
+    map.fitBounds(group.getBounds().pad(0.25));
+    if (pts.length === 1) map.setZoom(14);
+  } else {
+    map.setView([36.2, 138.6], 5);
+  }
+  planMapObj = map;
+  setTimeout(() => map.invalidateSize(), 120);
+}
+function renderPlan() {
+  const cont = document.getElementById("placesContainer");
+  const planned = PLACES.filter(p => plan.has(p.id));
+  document.getElementById("emptyMsg").classList.add("hidden");
+  if (!planned.length) {
+    if (planMapObj) { planMapObj.remove(); planMapObj = null; }
+    cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке любого места нажмите <b>«＋ В план»</b> — оно появится здесь и на карте.</div>`;
+    return;
+  }
+  const withCoords = planned.filter(p => p.lat != null && p.lng != null).length;
+  let html = `<div class="planmap" id="planMap"></div>
+    <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Часть кафе без координат — только в списке.</p>`;
+  orderedCities().forEach(city => {
+    const inCity = planned.filter(p => p.city === city);
+    if (!inCity.length) return;
+    const areas = [];
+    inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+    const body = areas.map(a => {
+      const cards = inCity.filter(p => (p.area || "—") === a);
+      return `<div class="area-sec"><h3 class="area-head">${svg(PIN_ICON)}${a}<span class="acnt">${cards.length}</span></h3><div class="grid">${cards.map(p => placeCard(p)).join("")}</div></div>`;
+    }).join("");
+    const route = cityPlanRouteUrl(city, inCity);
+    const hotel = CITY_HOTEL[city];
+    html += `<section class="city-sec">
+      <div class="city-head"><h2>${city}</h2><span class="city-cnt">${inCity.length} ${placesWord(inCity.length)}</span>${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}</div>
+      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Маршрут по плану в Google Maps</a></div>` : ""}
+      ${body}
+    </section>`;
+  });
+  cont.innerHTML = html;
+  initPlanMap(planned);
+}
+
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
 document.getElementById("tripSub").textContent = TRIP.subtitle;
@@ -1079,6 +1214,7 @@ renderTabs();
 renderAreaTabs();
 renderPlaces();
 updateProgress();
+setTimeout(() => document.getElementById("splash").classList.add("hide"), 700);
 </script>
 </body>
 </html>
