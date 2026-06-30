@@ -8,8 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   /* ============================================================
      Дизайн-система (ui-ux-pro-max · "Adventure orange + map teal")
@@ -324,6 +322,7 @@
   .cattabs[hidden] { display: none; }
   .tab.plan-tab.active { background: var(--accent); border-color: var(--accent); }
   .planmap { width: 100%; height: 300px; border-radius: var(--r-lg); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--muted); }
+  .gmap { width: 100%; height: 300px; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); margin: 4px 0 12px; display: block; }
   .map-fallback { width: 100%; height: 100%; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--fg-muted); font-size: .9rem; }
   .plan-note { font-size: .8rem; color: var(--fg-muted); margin: 8px 2px 0; }
   .plan-empty { text-align: center; color: var(--fg-soft); background: var(--surface); border: 1px dashed var(--border-strong);
@@ -1196,6 +1195,16 @@ function clearPlan() {
   renderTabs();
   renderPlaces();
 }
+// Встраиваемая карта Google (без ключа): маршрут отель → точки города
+function cityEmbedUrl(city, places) {
+  const base = planBase(city);
+  const stops = [base, ...places].slice(0, 11); // старт + до 10 точек
+  const loc = p => { const c = coordsOf(p); return c ? `${c[0]},${c[1]}` : encodeURIComponent(`${p.name} ${p.city} Japan`); };
+  if (stops.length === 1) return `https://www.google.com/maps?q=${loc(stops[0])}&z=14&output=embed`;
+  const saddr = loc(stops[0]);
+  const daddr = stops.slice(1).map(loc).join("+to:");
+  return `https://www.google.com/maps?saddr=${saddr}&daddr=${daddr}&hl=ru&output=embed`;
+}
 function initPlanMap(planned) {
   const el = document.getElementById("planMap");
   if (!el) return;
@@ -1227,20 +1236,13 @@ function renderPlan() {
   const planned = PLACES.filter(p => plan.has(p.id));
   document.getElementById("emptyMsg").classList.add("hidden");
   if (!planned.length) {
-    if (planMapObj) { planMapObj.remove(); planMapObj = null; }
-    cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке любого места нажмите <b>«＋ В план»</b> — оно появится здесь и на карте.</div>`;
+    cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке любого места нажмите <b>«＋ В план»</b> — оно появится здесь и на карте Google.</div>`;
     return;
   }
-  const withCoords = planned.filter(p => coordsOf(p)).length;
-  const types = [...new Set(planned.map(p => p.cat))];
-  const legend = types.map(c => `<span class="leg"><span class="leg-dot" style="background:${catColor(c)}"></span>${(CAT_META[c]||{}).ru||c}</span>`).join("");
   let html = `<div class="plan-bar">
       <span class="plan-count">В плане: ${planned.length} ${placesWord(planned.length)}</span>
       <button class="plan-clear" onclick="clearPlan()">${svg(TRASH_ICON)}Очистить план</button>
-    </div>
-    <div class="planmap" id="planMap"></div>
-    <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Метки окрашены по типу места.</p>
-    <div class="map-legend">${legend}</div>`;
+    </div>`;
   orderedCities().forEach(city => {
     const inCity = planned.filter(p => p.city === city);
     if (!inCity.length) return;
@@ -1254,12 +1256,12 @@ function renderPlan() {
     const hotel = CITY_HOTEL[city];
     html += `<section class="city-sec">
       <div class="city-head"><h2>${city}</h2><span class="city-cnt">${inCity.length} ${placesWord(inCity.length)}</span>${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}</div>
-      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Маршрут по плану в Google Maps</a></div>` : ""}
+      <iframe class="gmap" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${cityEmbedUrl(city, inCity)}"></iframe>
+      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Открыть в Google Maps</a></div>` : ""}
       ${body}
     </section>`;
   });
   cont.innerHTML = html;
-  initPlanMap(planned);
 }
 
 // init
