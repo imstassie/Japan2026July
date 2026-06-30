@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   /* ============================================================
      Дизайн-система (ui-ux-pro-max · "Adventure orange + map teal")
@@ -323,6 +325,17 @@
   .tab.plan-tab.active { background: var(--accent); border-color: var(--accent); }
   .planmap { width: 100%; height: 300px; border-radius: var(--r-lg); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--muted); }
   .gmap { width: 100%; height: 300px; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); margin: 4px 0 12px; display: block; }
+  .citymap { width: 100%; height: 300px; border-radius: var(--r-lg); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--muted); margin: 4px 0 22px; }
+  .mappin { width: 18px; height: 18px; border-radius: 50%; background: var(--cat, #64748b); border: 2.5px solid #fff;
+            box-shadow: 0 1px 4px rgba(15,23,42,.45); cursor: pointer; transition: transform .12s ease; }
+  .mappin:hover { transform: scale(1.3); }
+  .mappin.in { box-shadow: 0 0 0 3px var(--accent), 0 1px 4px rgba(15,23,42,.45); }
+  .mpop { font-family: var(--ff-body); min-width: 130px; }
+  .mpop b { font-size: .9rem; color: var(--fg); }
+  .mpop-sub { font-size: .74rem; color: var(--fg-muted); margin: 2px 0 8px; }
+  .mpop-btn { font-size: .78rem; font-weight: 600; cursor: pointer; border-radius: 999px; padding: 5px 11px;
+              color: var(--accent); background: #fff; border: 1px solid var(--accent); }
+  .mpop-btn.in { background: var(--accent); color: #fff; }
   .map-fallback { width: 100%; height: 100%; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--fg-muted); font-size: .9rem; }
   .plan-note { font-size: .8rem; color: var(--fg-muted); margin: 8px 2px 0; }
   .plan-empty { text-align: center; color: var(--fg-soft); background: var(--surface); border: 1px dashed var(--border-strong);
@@ -832,6 +845,8 @@ const PLUS_ICON = '<path d="M12 5v14M5 12h14"/>';
 const CHECK_ICON = '<path d="M20 6 9 17l-5-5"/>';
 const TRASH_ICON = '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/>';
 let planMapObj = null;
+let cityMarkers = {};
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 // Цвета меток по типу места (совпадают с --cat-*)
 const CAT_COLORS = { temple:"#0891B2", food:"#D97706", nature:"#16A34A", museum:"#7C3AED", shopping:"#DB2777", view:"#0EA5E9", landmark:"#EA580C", other:"#64748B" };
@@ -1159,8 +1174,10 @@ function renderPlaces() {
     </section>`;
   });
 
-  document.getElementById("placesContainer").innerHTML = html;
+  const showMap = activeCity !== "all" && any;
+  document.getElementById("placesContainer").innerHTML = (showMap ? `<div class="citymap" id="cityMap"></div>` : "") + html;
   document.getElementById("emptyMsg").classList.toggle("hidden", any);
+  if (showMap) renderMap("cityMap", visible);
 }
 
 // ---- Мой план (конструктор) ----
@@ -1169,11 +1186,13 @@ function togglePlan(id) {
   savePlan();
   renderTabs();
   if (activeCity === "plan") { renderPlaces(); return; }
+  const inp = plan.has(id);
   document.querySelectorAll(`.card[data-id="${id}"] .btn-plan`).forEach(b => {
-    const inp = plan.has(id);
     b.classList.toggle("in", inp);
     b.innerHTML = svg(inp ? CHECK_ICON : PLUS_ICON) + (inp ? "В плане" : "В план");
   });
+  const m = cityMarkers[id];
+  if (m) { m.el.classList.toggle("in", inp); m.popup.setHTML(pinPopupHtml(placeById[id])); }
 }
 function planBase(city) { return (city === "Осака" || city === "Киото" || city === "Нара") ? HOTELS.osaka : HOTELS.tokyo; }
 function cityPlanRouteUrl(city, places) {
@@ -1195,39 +1214,47 @@ function clearPlan() {
   renderTabs();
   renderPlaces();
 }
-// Встраиваемая карта Google (без ключа): маршрут отель → точки города
-function cityEmbedUrl(city, places) {
-  const base = planBase(city);
-  const stops = [base, ...places].slice(0, 11); // старт + до 10 точек
-  const loc = p => { const c = coordsOf(p); return c ? `${c[0]},${c[1]}` : encodeURIComponent(`${p.name} ${p.city} Japan`); };
-  if (stops.length === 1) return `https://www.google.com/maps?q=${loc(stops[0])}&z=14&output=embed`;
-  const saddr = loc(stops[0]);
-  const daddr = stops.slice(1).map(loc).join("+to:");
-  return `https://www.google.com/maps?saddr=${saddr}&daddr=${daddr}&hl=ru&output=embed`;
+// Перевод подписей карты на русский (с запасными вариантами)
+function localizeRu(map) {
+  try {
+    (map.getStyle().layers || []).forEach(l => {
+      if (l.type === "symbol" && l.layout && l.layout["text-field"]) {
+        map.setLayoutProperty(l.id, "text-field", ["coalesce", ["get", "name:ru"], ["get", "name:latin"], ["get", "name"]]);
+      }
+    });
+  } catch (e) {}
 }
-function initPlanMap(planned) {
-  const el = document.getElementById("planMap");
+// Попап метки с кнопкой добавления/удаления из плана
+function pinPopupHtml(p) {
+  const inp = plan.has(p.id);
+  return `<div class="mpop"><b>${p.name}</b><div class="mpop-sub">${(CAT_META[p.cat]||{}).ru||""}${p.area ? " · " + p.area : ""}</div>` +
+    `<button class="mpop-btn ${inp?"in":""}" onclick="togglePlan('${p.id}')">${inp ? "✓ В плане" : "＋ В план"}</button></div>`;
+}
+// Универсальная карта (план или город): цветные метки по типу, добавление из метки
+function renderMap(elId, places) {
+  const el = document.getElementById(elId);
   if (!el) return;
   if (typeof maplibregl === "undefined") { el.innerHTML = '<div class="map-fallback">Карта появится при наличии интернета.</div>'; return; }
   if (planMapObj) { planMapObj.remove(); planMapObj = null; }
-  const pts = planned.map(p => ({ p, c: coordsOf(p) })).filter(x => x.c);
-  const map = new maplibregl.Map({
-    container: el,
-    style: "https://tiles.openfreemap.org/styles/liberty",
-    center: [138.6, 36.2], zoom: 4,
-  });
+  cityMarkers = {};
+  const pts = places.map(p => ({ p, c: coordsOf(p) })).filter(x => x.c);
+  const map = new maplibregl.Map({ container: el, style: MAP_STYLE, center: [138.6, 36.2], zoom: 4 });
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   map.on("load", () => {
+    localizeRu(map);
     const bounds = new maplibregl.LngLatBounds();
     pts.forEach(({ p, c }) => {
-      new maplibregl.Marker({ color: catColor(p.cat) })
-        .setLngLat([c[1], c[0]])
-        .setPopup(new maplibregl.Popup({ offset: 26 }).setHTML(`<b>${p.name}</b><br>${(CAT_META[p.cat]||{}).ru||""}${p.area ? " · " + p.area : ""}`))
-        .addTo(map);
+      const pin = document.createElement("div");
+      pin.className = "mappin" + (plan.has(p.id) ? " in" : "");
+      pin.style.setProperty("--cat", catColor(p.cat));
+      const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(pinPopupHtml(p));
+      const marker = new maplibregl.Marker({ element: pin }).setLngLat([c[1], c[0]]).setPopup(popup).addTo(map);
+      pin.addEventListener("mouseenter", () => { if (!popup.isOpen()) marker.togglePopup(); });
+      cityMarkers[p.id] = { marker, el: pin, popup };
       bounds.extend([c[1], c[0]]);
     });
-    if (pts.length === 1) { map.setCenter([pts[0].c[1], pts[0].c[0]]); map.setZoom(14); }
-    else if (pts.length > 1) map.fitBounds(bounds, { padding: 50, maxZoom: 14, duration: 0 });
+    if (pts.length === 1) { map.setCenter([pts[0].c[1], pts[0].c[0]]); map.setZoom(13); }
+    else if (pts.length > 1) map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 0 });
   });
   planMapObj = map;
 }
@@ -1236,13 +1263,20 @@ function renderPlan() {
   const planned = PLACES.filter(p => plan.has(p.id));
   document.getElementById("emptyMsg").classList.add("hidden");
   if (!planned.length) {
-    cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке любого места нажмите <b>«＋ В план»</b> — оно появится здесь и на карте Google.</div>`;
+    if (planMapObj) { planMapObj.remove(); planMapObj = null; }
+    cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке места или на метке карты нажмите <b>«＋ В план»</b> — оно появится здесь.</div>`;
     return;
   }
+  const withCoords = planned.filter(p => coordsOf(p)).length;
+  const types = [...new Set(planned.map(p => p.cat))];
+  const legend = types.map(c => `<span class="leg"><span class="leg-dot" style="background:${catColor(c)}"></span>${(CAT_META[c]||{}).ru||c}</span>`).join("");
   let html = `<div class="plan-bar">
       <span class="plan-count">В плане: ${planned.length} ${placesWord(planned.length)}</span>
       <button class="plan-clear" onclick="clearPlan()">${svg(TRASH_ICON)}Очистить план</button>
-    </div>`;
+    </div>
+    <div class="planmap" id="planMap"></div>
+    <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Наведите/нажмите метку, чтобы убрать из плана. Метки окрашены по типу.</p>
+    <div class="map-legend">${legend}</div>`;
   orderedCities().forEach(city => {
     const inCity = planned.filter(p => p.city === city);
     if (!inCity.length) return;
@@ -1256,12 +1290,12 @@ function renderPlan() {
     const hotel = CITY_HOTEL[city];
     html += `<section class="city-sec">
       <div class="city-head"><h2>${city}</h2><span class="city-cnt">${inCity.length} ${placesWord(inCity.length)}</span>${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}</div>
-      <iframe class="gmap" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${cityEmbedUrl(city, inCity)}"></iframe>
-      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Открыть в Google Maps</a></div>` : ""}
+      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Маршрут по плану в Google Maps</a></div>` : ""}
       ${body}
     </section>`;
   });
   cont.innerHTML = html;
+  renderMap("planMap", planned);
 }
 
 // init
