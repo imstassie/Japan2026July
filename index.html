@@ -165,6 +165,13 @@
              border: 1px solid color-mix(in srgb, var(--secondary) 22%, white); padding: 7px 12px; border-radius: 999px; transition: all .15s ease; }
   .btn-map:hover { background: color-mix(in srgb, var(--secondary) 16%, white); }
   .btn-map svg { width: 14px; height: 14px; }
+
+  .day-route { margin-bottom: 16px; }
+  .btn-route { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: .85rem; font-weight: 700;
+               color: var(--on-primary); background: linear-gradient(135deg, var(--primary), var(--accent));
+               padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow-md); transition: transform .15s ease, box-shadow .15s ease; }
+  .btn-route:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  .btn-route svg { width: 16px; height: 16px; }
   .chk { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 600; color: var(--fg-soft); user-select: none; }
   .chk input { width: 19px; height: 19px; accent-color: var(--primary); cursor: pointer; }
 
@@ -290,36 +297,46 @@ const PLACES = [
   // ---- Токио ----
   { id: "sensoji", name: "Храм Сэнсо-дзи", local: "浅草寺 · Asakusa", city: "Токио", area: "Асакуса",
     cat: "temple", why: "Старейший храм Токио, улица Накамисэ с уличной едой. Лучше с утра — меньше толп.",
-    hours: "06:00–17:00", station: "Asakusa", duration: "1–1.5 ч", cost: "Бесплатно", priority: "must" },
+    hours: "06:00–17:00", station: "Asakusa", duration: "1–1.5 ч", cost: "Бесплатно", priority: "must",
+    lat: 35.7148, lng: 139.7967 },
   { id: "skytree", name: "Tokyo Skytree", local: "東京スカイツリー", city: "Токио", area: "Сумида",
     cat: "view", why: "Смотровая 350/450 м. Билет онлайн — без очереди.", hours: "10:00–21:00",
-    station: "Tokyo Skytree", duration: "1.5 ч", cost: "≈2100–3400 ¥", booking: true, priority: "nice" },
+    station: "Tokyo Skytree", duration: "1.5 ч", cost: "≈2100–3400 ¥", booking: true, priority: "nice",
+    lat: 35.7101, lng: 139.8107 },
   { id: "teamlab", name: "teamLab Planets", local: "豊洲", city: "Токио", area: "Тоёсу",
     cat: "museum", why: "Иммерсивный цифровой музей. Босиком, по воде. Билеты ТОЛЬКО заранее по слотам.",
-    hours: "09:00–22:00", station: "Shin-Toyosu", duration: "2 ч", cost: "≈3800 ¥", booking: true, priority: "must" },
+    hours: "09:00–22:00", station: "Shin-Toyosu", duration: "2 ч", cost: "≈3800 ¥", booking: true, priority: "must",
+    lat: 35.6486, lng: 139.7905 },
   { id: "shibuya", name: "Перекрёсток Сибуя", local: "渋谷スクランブル交差点", city: "Токио", area: "Сибуя",
     cat: "landmark", why: "Знаменитый перекрёсток + Hachiko. Вид сверху из Shibuya Sky.", hours: "Круглосуточно",
-    station: "Shibuya", duration: "1 ч", cost: "Бесплатно", priority: "must" },
+    station: "Shibuya", duration: "1 ч", cost: "Бесплатно", priority: "must",
+    lat: 35.6595, lng: 139.7005 },
   { id: "meiji", name: "Святилище Мэйдзи", local: "明治神宮", city: "Токио", area: "Харадзюку",
     cat: "temple", why: "Лесное синтоистское святилище в центре города. Рядом — Такэсита-дори.",
-    hours: "Рассвет–закат", station: "Harajuku", duration: "1–1.5 ч", cost: "Бесплатно", priority: "nice" },
+    hours: "Рассвет–закат", station: "Harajuku", duration: "1–1.5 ч", cost: "Бесплатно", priority: "nice",
+    lat: 35.6764, lng: 139.6993 },
   { id: "ichiran", name: "Рамен Ichiran", local: "一蘭", city: "Токио", area: "Сибуя",
     cat: "food", why: "Тонкоцу-рамен в индивидуальных кабинках. Культовый опыт.", hours: "Круглосуточно",
-    station: "Shibuya", duration: "45 мин", cost: "≈1200 ¥", priority: "nice" },
+    station: "Shibuya", duration: "45 мин", cost: "≈1200 ¥", priority: "nice",
+    lat: 35.6617, lng: 139.6987 },
 
   // ---- Киото ----
   { id: "fushimi", name: "Фусими Инари", local: "伏見稲荷大社", city: "Киото", area: "Фусими",
     cat: "temple", why: "Тысячи красных торий вверх по горе. Идти к 7–8 утра ради пустых кадров.",
-    hours: "Круглосуточно", station: "Inari", duration: "2–3 ч", cost: "Бесплатно", priority: "must" },
+    hours: "Круглосуточно", station: "Inari", duration: "2–3 ч", cost: "Бесплатно", priority: "must",
+    lat: 34.9671, lng: 135.7727 },
   { id: "kiyomizu", name: "Киёмидзу-дэра", local: "清水寺", city: "Киото", area: "Хигасияма",
     cat: "temple", why: "Деревянная веранда с видом на город. Вокруг — старые улочки Хигасиямы.",
-    hours: "06:00–18:00", station: "Kiyomizu-michi (bus)", duration: "1.5 ч", cost: "≈400 ¥", priority: "must" },
+    hours: "06:00–18:00", station: "Kiyomizu-michi (bus)", duration: "1.5 ч", cost: "≈400 ¥", priority: "must",
+    lat: 34.9949, lng: 135.7851 },
   { id: "arashiyama", name: "Бамбуковая роща Арасияма", local: "嵐山", city: "Киото", area: "Арасияма",
     cat: "nature", why: "Бамбуковая аллея + мост Тогэцукё. Очень рано или вечером — без толп.",
-    hours: "Круглосуточно", station: "Arashiyama", duration: "2–3 ч", cost: "Бесплатно", priority: "must" },
+    hours: "Круглосуточно", station: "Arashiyama", duration: "2–3 ч", cost: "Бесплатно", priority: "must",
+    lat: 35.0170, lng: 135.6716 },
   { id: "nishiki", name: "Рынок Нисики", local: "錦市場", city: "Киото", area: "Центр",
     cat: "food", why: "«Кухня Киото» — 400 м уличной еды и местных деликатесов.", hours: "10:00–18:00",
-    station: "Shijo", duration: "1 ч", cost: "по аппетиту", priority: "nice" },
+    station: "Shijo", duration: "1 ч", cost: "по аппетиту", priority: "nice",
+    lat: 35.0050, lng: 135.7649 },
 ];
 
 const DAYS = [
@@ -397,9 +414,27 @@ function fmtDate(iso) {
   return `${WD[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}`;
 }
 function mapsLink(p) {
+  if (p.lat != null && p.lng != null) return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
   const q = encodeURIComponent(`${p.name} ${p.local ? p.local.split("·")[0] : ""} ${p.city} Japan`);
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
+
+// Маршрут одного дня в Google Maps (через все точки-места по порядку, транспорт)
+function dayRouteUrl(day) {
+  const pts = day.items.filter(it => it.placeId && placeById[it.placeId]).map(it => placeById[it.placeId]);
+  if (!pts.length) return null;
+  const loc = p => (p.lat != null && p.lng != null) ? `${p.lat},${p.lng}` : `${p.name} ${p.city} Japan`;
+  const enc = encodeURIComponent;
+  if (pts.length === 1)
+    return `https://www.google.com/maps/dir/?api=1&destination=${enc(loc(pts[0]))}&travelmode=transit`;
+  const origin = enc(loc(pts[0]));
+  const destination = enc(loc(pts[pts.length - 1]));
+  const waypoints = pts.slice(1, -1).slice(0, 9).map(p => enc(loc(p))).join("%7C"); // Google: до 9 промежуточных точек
+  let u = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
+  if (waypoints) u += `&waypoints=${waypoints}`;
+  return u;
+}
+const ROUTE_ICON = '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>';
 
 function placeCard(p, withChk = true) {
   const cm = CAT_META[p.cat] || CAT_META.other;
@@ -460,10 +495,12 @@ function renderDays() {
         <div>${body}</div>
       </div>`;
     }).join("");
+    const route = dayRouteUrl(d);
     return `<section class="day" id="day-${i}">
       <div class="day-head"><h2>День ${i+1}</h2><span class="when">${fmtDate(d.date)} · ${d.city}</span></div>
       ${d.area ? `<div class="day-area">${svg('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>')}${d.area}</div>` : ""}
       ${d.note ? `<div class="day-note">${d.note}</div>` : ""}
+      ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Маршрут дня в Google Maps</a></div>` : ""}
       <div class="timeline">${rows}</div>
     </section>`;
   }).join("");
