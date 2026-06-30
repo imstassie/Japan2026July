@@ -235,6 +235,16 @@
   .sample-note { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--accent) 12%, white); border: 1px solid color-mix(in srgb, var(--accent) 28%, white); color: #92400e; border-radius: var(--r-md); padding: 11px 14px; font-size: .85rem; font-weight: 500; margin-bottom: 16px; }
   .sample-note svg { width: 18px; height: 18px; flex: none; }
 
+  /* ---------- Вкладки городов (в шапке) ---------- */
+  .tabs { display: flex; gap: 8px; overflow-x: auto; max-width: 1100px; margin: 14px auto 0; padding-bottom: 2px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-soft); font-weight: 700;
+         font-size: .85rem; padding: 8px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+         transition: color .15s ease, background .15s ease, border-color .15s ease; }
+  .tab:hover { color: var(--primary); }
+  .tab.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); box-shadow: var(--shadow-sm); }
+  .tab .cnt { font-size: .8em; opacity: .7; margin-left: 5px; font-weight: 600; }
+
   /* ---------- Города и районы ---------- */
   .toolbar { margin-bottom: 6px; }
   .citynav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 10px; margin: 0 -16px; scrollbar-width: none; }
@@ -279,6 +289,7 @@
       <div class="lbl">посещено</div>
     </div>
   </div>
+  <div class="tabs" id="cityTabs" role="tablist"></div>
 </header>
 
 <main>
@@ -288,7 +299,6 @@
       <input type="search" id="searchInput" placeholder="Поиск места или района…" oninput="renderPlaces()" />
     </label>
   </div>
-  <nav class="citynav" id="cityNav" aria-label="Города"></nav>
   <div id="placesContainer"></div>
   <p class="empty hidden" id="emptyMsg">Ничего не найдено.</p>
 
@@ -804,27 +814,6 @@ function moveDay(pos, dir) {
   document.getElementById("day-" + j)?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
-let activeCity = "all";
-function renderCityFilters() {
-  const cities = ["all", ...Array.from(new Set(PLACES.map(p => p.city)))];
-  document.getElementById("cityFilters").innerHTML = cities.map(c =>
-    `<button class="chipfilter" aria-pressed="${c===activeCity}" onclick="setCity('${c}')">${c==="all"?"Все города":c}</button>`
-  ).join(" ");
-}
-function setCity(c) { activeCity = c; renderCityFilters(); renderCatalog(); }
-
-function renderCatalog() {
-  const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
-  const list = PLACES.filter(p => {
-    const okCity = activeCity === "all" || p.city === activeCity;
-    const hay = `${p.name} ${p.local||""} ${p.area||""} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase();
-    return okCity && (!q || hay.includes(q));
-  });
-  const grid = document.getElementById("catGrid");
-  grid.innerHTML = list.map(p => placeCard(p)).join("");
-  document.getElementById("catEmpty").classList.toggle("hidden", list.length > 0);
-}
-
 function toggle(id) {
   if (visited.has(id)) visited.delete(id); else visited.add(id);
   saveVisited();
@@ -855,18 +844,32 @@ function orderedCities() {
   present.forEach(c => { if (!ranked.includes(c)) ranked.push(c); });
   return ranked;
 }
+let activeCity = localStorage.getItem("japan2026_tab") || "all";
+function renderTabs() {
+  let h = `<button class="tab ${activeCity==="all"?"active":""}" onclick="setCity('all')">Все места<span class="cnt">${PLACES.length}</span></button>`;
+  orderedCities().forEach(c => {
+    const n = PLACES.filter(p => p.city === c).length;
+    h += `<button class="tab ${activeCity===c?"active":""}" onclick="setCity('${c}')">${c}<span class="cnt">${n}</span></button>`;
+  });
+  document.getElementById("cityTabs").innerHTML = h;
+}
+function setCity(c) {
+  activeCity = c;
+  localStorage.setItem("japan2026_tab", c);
+  renderTabs();
+  renderPlaces();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 function renderPlaces() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
-  const cont = document.getElementById("placesContainer");
-  const nav = document.getElementById("cityNav");
-  let html = "", navHtml = "", any = false;
+  let html = "", any = false;
 
   orderedCities().forEach((city, ci) => {
+    if (activeCity !== "all" && city !== activeCity) return;
     const inCity = PLACES.filter(p => p.city === city && match(p));
     if (!inCity.length) return;
     any = true;
-    navHtml += `<button class="citychip" onclick="jumpCity(${ci})">${city}<span class="cnt">${inCity.length}</span></button>`;
 
     const areas = [];
     inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
@@ -891,15 +894,14 @@ function renderPlaces() {
     </section>`;
   });
 
-  cont.innerHTML = html;
-  nav.innerHTML = navHtml;
+  document.getElementById("placesContainer").innerHTML = html;
   document.getElementById("emptyMsg").classList.toggle("hidden", any);
 }
-function jumpCity(ci) { document.getElementById("city-" + ci)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
 document.getElementById("tripSub").textContent = TRIP.subtitle;
+renderTabs();
 renderPlaces();
 updateProgress();
 </script>
