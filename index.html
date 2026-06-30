@@ -245,6 +245,17 @@
   .tab.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); box-shadow: var(--shadow-sm); }
   .tab .cnt { font-size: .8em; opacity: .7; margin-left: 5px; font-weight: 600; }
 
+  /* ---------- Вкладки районов (внутри города) ---------- */
+  .areatabs { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 4px; margin-bottom: 4px; scrollbar-width: none; }
+  .areatabs::-webkit-scrollbar { display: none; }
+  .areatabs[hidden] { display: none; }
+  .areatab { flex: none; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-soft); font-weight: 600;
+             font-size: .8rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+             transition: color .15s ease, background .15s ease, border-color .15s ease; }
+  .areatab:hover { color: var(--secondary); }
+  .areatab.active { background: var(--secondary); border-color: var(--secondary); color: #fff; }
+  .areatab .cnt { font-size: .82em; opacity: .7; margin-left: 4px; }
+
   /* ---------- Города и районы ---------- */
   .toolbar { margin-bottom: 6px; }
   .citynav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 10px; margin: 0 -16px; scrollbar-width: none; }
@@ -299,6 +310,7 @@
       <input type="search" id="searchInput" placeholder="Поиск места или района…" oninput="renderPlaces()" />
     </label>
   </div>
+  <nav class="areatabs" id="areaTabs" aria-label="Районы" hidden></nav>
   <div id="placesContainer"></div>
   <p class="empty hidden" id="emptyMsg">Ничего не найдено.</p>
 
@@ -845,6 +857,13 @@ function orderedCities() {
   return ranked;
 }
 let activeCity = localStorage.getItem("japan2026_tab") || "all";
+let activeArea = "all";
+
+function cityAreas(city) {
+  const areas = [];
+  PLACES.filter(p => p.city === city).forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+  return areas;
+}
 function renderTabs() {
   let h = `<button class="tab ${activeCity==="all"?"active":""}" onclick="setCity('all')">Все места<span class="cnt">${PLACES.length}</span></button>`;
   orderedCities().forEach(c => {
@@ -853,10 +872,30 @@ function renderTabs() {
   });
   document.getElementById("cityTabs").innerHTML = h;
 }
+function renderAreaTabs() {
+  const el = document.getElementById("areaTabs");
+  if (activeCity === "all") { el.hidden = true; el.innerHTML = ""; return; }
+  const inCity = PLACES.filter(p => p.city === activeCity);
+  let h = `<button class="areatab ${activeArea==="all"?"active":""}" onclick="setArea('all')">Все районы<span class="cnt">${inCity.length}</span></button>`;
+  cityAreas(activeCity).forEach(a => {
+    const n = inCity.filter(p => (p.area || "—") === a).length;
+    h += `<button class="areatab ${activeArea===a?"active":""}" onclick="setArea('${a.replace(/'/g, "\\'")}')">${a}<span class="cnt">${n}</span></button>`;
+  });
+  el.hidden = false;
+  el.innerHTML = h;
+}
 function setCity(c) {
   activeCity = c;
+  activeArea = "all";
   localStorage.setItem("japan2026_tab", c);
   renderTabs();
+  renderAreaTabs();
+  renderPlaces();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function setArea(a) {
+  activeArea = a;
+  renderAreaTabs();
   renderPlaces();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -869,10 +908,12 @@ function renderPlaces() {
     if (activeCity !== "all" && city !== activeCity) return;
     const inCity = PLACES.filter(p => p.city === city && match(p));
     if (!inCity.length) return;
-    any = true;
 
-    const areas = [];
+    let areas = [];
     inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+    if (activeCity !== "all" && activeArea !== "all") areas = areas.filter(a => a === activeArea);
+    if (!areas.length) return;
+    any = true;
 
     const body = areas.map(a => {
       const cards = inCity.filter(p => (p.area || "—") === a);
@@ -902,6 +943,7 @@ function renderPlaces() {
 document.getElementById("tripTitle").textContent = TRIP.title;
 document.getElementById("tripSub").textContent = TRIP.subtitle;
 renderTabs();
+renderAreaTabs();
 renderPlaces();
 updateProgress();
 </script>
