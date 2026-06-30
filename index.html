@@ -972,6 +972,14 @@ function renderCatTabs(base) {
 }
 function setCat(c) { activeCat = c; renderPlaces(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
+// Склонение «место» по числу: 1 место, 2 места, 5 мест
+function placesWord(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "место";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "места";
+  return "мест";
+}
+
 function renderPlaces() {
   const base = scopeList();
   renderCatTabs(base);
@@ -998,7 +1006,7 @@ function renderPlaces() {
     html += `<section class="city-sec" id="city-${ci}">
       <div class="city-head">
         <h2>${city}</h2>
-        <span class="city-cnt">${inCity.length} мест</span>
+        <span class="city-cnt">${inCity.length} ${placesWord(inCity.length)}</span>
         ${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}
       </div>
       ${note ? `<div class="city-note">${note}</div>` : ""}
