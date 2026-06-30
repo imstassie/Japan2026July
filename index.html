@@ -118,16 +118,13 @@
   /* ---------- Day section ---------- */
   .day { margin-top: 26px; scroll-margin-top: 150px; }
   .day-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-  .drag-handle { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
-                 border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-muted);
-                 cursor: grab; touch-action: none; transition: background .15s ease, color .15s ease; }
-  .drag-handle:hover { background: var(--muted); color: var(--primary); }
-  .drag-handle svg { width: 18px; height: 18px; }
-  .day.dragging { opacity: .92; box-shadow: var(--shadow-lg); }
-  .day.dragging .drag-handle { cursor: grabbing; }
-  .day.dragging > :not(.day-head) { pointer-events: none; }
-  .day.dragslot { outline: 2px dashed var(--primary); outline-offset: 6px; border-radius: var(--r-lg); }
-  body.reordering { user-select: none; -webkit-user-select: none; }
+  .day-move { flex: none; display: inline-flex; flex-direction: column; gap: 3px; }
+  .day-move button { display: grid; place-items: center; width: 30px; height: 22px; border-radius: 8px;
+                     border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-soft);
+                     transition: background .15s ease, color .15s ease; }
+  .day-move button:hover:not(:disabled) { background: var(--muted); color: var(--primary); }
+  .day-move button:disabled { opacity: .35; cursor: default; }
+  .day-move svg { width: 15px; height: 15px; }
   .logi-reset { margin-top: 12px; display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 600;
                 color: var(--secondary); background: color-mix(in srgb, var(--secondary) 9%, white);
                 border: 1px solid color-mix(in srgb, var(--secondary) 22%, white); padding: 7px 12px; border-radius: 999px; cursor: pointer; }
@@ -288,7 +285,7 @@
         <li><b>15–19 июля</b> — база Осака (отель у Нихонбаси) + дни-трипы Киото и Нара</li>
         <li><b>20 июля</b> — вылет 09:00 из KIX → выезд ~05:30 или ночь у аэропорта</li>
       </ul>
-      <p class="logi-hint">Дни ниже — подвижные: тяните за ручку <b>⠿</b> в заголовке дня, чтобы поменять порядок. Дни-трипы (Фудзи, Киото, Нара) ставьте на самый ясный прогноз.</p>
+      <p class="logi-hint">Дни ниже — подвижные: меняйте порядок кнопками ↑/↓ в заголовке дня. Дни-трипы (Фудзи, Киото, Нара) ставьте на самый ясный прогноз.</p>
       <button class="logi-reset" id="resetOrder" hidden onclick="resetOrder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg>Вернуть исходный порядок</button>
     </div>
     <nav class="daynav" id="dayNav" aria-label="Дни поездки"></nav>
@@ -635,7 +632,8 @@ function baseForDay(day) {
   return (day.city === "Осака" || day.city === "Киото" || day.city === "Нара") ? HOTELS.osaka : HOTELS.tokyo;
 }
 const BED_ICON = '<path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6"/>';
-const GRIP_ICON = '<path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"/>';
+const UP_ICON = '<path d="m18 15-6-6-6 6"/>';
+const DOWN_ICON = '<path d="m6 9 6 6 6-6"/>';
 
 // ---- Порядок дней (перетаскивание), сохраняется в браузере ----
 const ORDER_KEY = "japan2026_order";
@@ -753,9 +751,12 @@ function renderDays() {
     }).join("");
     const route = dayRouteUrl(d);
     const base = baseForDay(d);
-    return `<section class="day" id="day-${pos}" data-dayidx="${di}">
+    return `<section class="day" id="day-${pos}">
       <div class="day-head">
-        <button class="drag-handle" aria-label="Перетащить день" title="Перетащите, чтобы поменять порядок дней">${svg(GRIP_ICON)}</button>
+        <span class="day-move">
+          <button onclick="moveDay(${pos},-1)" ${pos===0?"disabled":""} aria-label="Поднять день" title="Поднять день выше">${svg(UP_ICON)}</button>
+          <button onclick="moveDay(${pos},1)" ${pos===ord.length-1?"disabled":""} aria-label="Опустить день" title="Опустить день ниже">${svg(DOWN_ICON)}</button>
+        </span>
         <h2>День ${pos+1}</h2>
         <span class="when">${d.city}${d.label ? " · " + d.label : ""}</span>
         ${d.flex ? `<span class="flexbadge">${svg(FLEX_ICON)}гибкий день</span>` : ""}
@@ -768,60 +769,18 @@ function renderDays() {
     </section>`;
   }).join("");
 
-  attachDnD();
   updateResetBtn();
 }
 
-// ---- Перетаскивание дней (pointer events: мышь + тач) ----
-let dragState = null;
-function attachDnD() {
-  document.querySelectorAll("#daysContainer .drag-handle").forEach(h => h.addEventListener("pointerdown", onDragStart));
-}
-function dayAfterPoint(cont, y) {
-  for (const el of cont.querySelectorAll(".day:not(.dragging)")) {
-    const r = el.getBoundingClientRect();
-    if (y < r.top + r.height / 2) return el;
-  }
-  return null;
-}
-function onDragStart(e) {
-  e.preventDefault();
-  const day = e.currentTarget.closest(".day");
-  const cont = document.getElementById("daysContainer");
-  if (!day || !cont) return;
-  const startOrder = [...cont.querySelectorAll(".day")].map(el => +el.dataset.dayidx);
-  dragState = { day, cont, handle: e.currentTarget, y: e.clientY, startOrder };
-  day.classList.add("dragging");
-  document.body.classList.add("reordering");
-  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
-  e.currentTarget.addEventListener("pointermove", onDragMove);
-  e.currentTarget.addEventListener("pointerup", onDragEnd);
-  e.currentTarget.addEventListener("pointercancel", onDragEnd);
-  dragState.raf = requestAnimationFrame(autoScrollLoop);
-}
-function onDragMove(e) {
-  if (!dragState) return;
-  dragState.y = e.clientY;
-  const after = dayAfterPoint(dragState.cont, e.clientY);
-  if (after == null) dragState.cont.appendChild(dragState.day);
-  else if (after !== dragState.day) dragState.cont.insertBefore(dragState.day, after);
-}
-function autoScrollLoop() {
-  if (!dragState) return;
-  const y = dragState.y, m = 90;
-  if (y < m) scrollBy(0, -Math.ceil((m - y) / 5));
-  else if (y > innerHeight - m) scrollBy(0, Math.ceil((y - (innerHeight - m)) / 5));
-  dragState.raf = requestAnimationFrame(autoScrollLoop);
-}
-function onDragEnd() {
-  if (!dragState) return;
-  cancelAnimationFrame(dragState.raf);
-  dragState.day.classList.remove("dragging");
-  document.body.classList.remove("reordering");
-  const newOrder = [...dragState.cont.querySelectorAll(".day")].map(el => +el.dataset.dayidx);
-  const changed = newOrder.join(",") !== dragState.startOrder.join(",");
-  dragState = null;
-  if (changed) { persistOrder(newOrder); renderDays(); }
+// ---- Перестановка дней кнопками ↑/↓ ----
+function moveDay(pos, dir) {
+  const ord = getOrderedIdx();
+  const j = pos + dir;
+  if (j < 0 || j >= ord.length) return;
+  [ord[pos], ord[j]] = [ord[j], ord[pos]];
+  persistOrder(ord);
+  renderDays();
+  document.getElementById("day-" + j)?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 let activeCity = "all";
