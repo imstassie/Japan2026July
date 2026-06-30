@@ -172,6 +172,23 @@
                padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow-md); transition: transform .15s ease, box-shadow .15s ease; }
   .btn-route:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
   .btn-route svg { width: 16px; height: 16px; }
+
+  .flexbadge { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+               background: color-mix(in srgb, var(--accent) 14%, white); color: #92400e; border: 1px solid color-mix(in srgb, var(--accent) 30%, white); }
+  .flexbadge svg { width: 13px; height: 13px; }
+  .day-base { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: .8rem; font-weight: 600; color: var(--fg-soft);
+              background: var(--muted); border: 1px solid var(--border-strong); padding: 6px 11px; border-radius: 999px; margin-bottom: 14px; transition: background .15s ease; }
+  .day-base:hover { background: var(--surface); }
+  .day-base svg { width: 14px; height: 14px; color: var(--primary); }
+
+  .logi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); margin-bottom: 6px; }
+  .logi h3 { font-family: var(--ff-display); margin: 0 0 10px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .logi h3 svg { width: 18px; height: 18px; color: var(--primary); }
+  .logi ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 7px; }
+  .logi li { font-size: .86rem; color: var(--fg-soft); padding-left: 16px; position: relative; }
+  .logi li::before { content: ""; position: absolute; left: 0; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+  .logi li b { color: var(--fg); }
+  .logi-hint { font-size: .82rem; color: var(--secondary); margin: 12px 0 0; font-weight: 600; }
   .chk { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 600; color: var(--fg-soft); user-select: none; }
   .chk input { width: 19px; height: 19px; accent-color: var(--primary); cursor: pointer; }
 
@@ -247,6 +264,17 @@
 
   <!-- ВИД: ПО ДНЯМ -->
   <section id="viewDays">
+    <div class="logi">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 15 6M9 12h6M9 18h6M5 6h.01M5 12h.01M5 18h.01"/></svg>Каркас поездки (фиксированные точки)</h3>
+      <ul>
+        <li><b>8 июля</b> — прилёт в Токио ~22:00 → заселение, конбини, спать</li>
+        <li><b>9–14 июля</b> — база Токио (отель в Синдзюку); днём 14-го лёгкий день</li>
+        <li><b>14 июля</b> — ~18:00 на вокзал → 19:00 синкансэн → ~22:00 Осака</li>
+        <li><b>15–19 июля</b> — база Осака (отель у Нихонбаси) + дни-трипы Киото и Нара</li>
+        <li><b>20 июля</b> — вылет 09:00 из KIX → выезд ~05:30 или ночь у аэропорта</li>
+      </ul>
+      <p class="logi-hint">Дни ниже — подвижные: переставляйте под погоду. Дни-трипы (Фудзи, Киото, Нара) ставьте на самый ясный прогноз.</p>
+    </div>
     <nav class="daynav" id="dayNav" aria-label="Дни поездки"></nav>
     <div id="daysContainer"></div>
   </section>
@@ -280,97 +308,270 @@
 /* ============================================================================
    ДАННЫЕ МАРШРУТА  —  редактируйте этот блок
    ----------------------------------------------------------------------------
-   ⚠️  Сейчас тут ПРИМЕР-ОБРАЗЕЦ (Токио + Киото, сбалансированный темп).
-       Замените на свои даты / города / места.
+   Маршрут: Токио (8–14 июля) + Осака (14–20 июля), день-трипы Фудзи / Киото / Нара.
+       Порядок дней — ПОДВИЖНЫЙ: переставляйте под погоду.
 
-   Категории (cat): temple, food, nature, museum, shopping, view, landmark, other
-   priority: "must" (обязательно) | "nice" (если успеем)
+   Поля места (PLACES): cat — temple|food|nature|museum|shopping|view|landmark|other;
+       priority — "must" | "nice"; booking:true — нужна бронь; lat/lng — точка на карте.
+   Поля дня (DAYS): city, label (тема дня), area, flex:true (гибкий день-трип), note, items.
    ========================================================================== */
 
 const TRIP = {
   title: "Япония 2026",
-  subtitle: "Июль 2026 · маршрут",
-  isSample: true,            // поставьте false, когда внесёте свои данные
+  subtitle: "8–20 июля · Токио + Осака",
+  isSample: false,
 };
 
 const PLACES = [
-  // ---- Токио ----
+  // ===== ТОКИО =====
   { id: "sensoji", name: "Храм Сэнсо-дзи", local: "浅草寺 · Asakusa", city: "Токио", area: "Асакуса",
-    cat: "temple", why: "Старейший храм Токио, улица Накамисэ с уличной едой. Лучше с утра — меньше толп.",
-    hours: "06:00–17:00", station: "Asakusa", duration: "1–1.5 ч", cost: "Бесплатно", priority: "must",
+    cat: "temple", why: "Старейший храм города + улица Накамисэ с уличной едой. Лучше с утра.",
+    hours: "06:00–17:00 (территория круглосуточно)", station: "Asakusa", duration: "1–1.5 ч", cost: "Бесплатно", priority: "must",
     lat: 35.7148, lng: 139.7967 },
   { id: "skytree", name: "Tokyo Skytree", local: "東京スカイツリー", city: "Токио", area: "Сумида",
-    cat: "view", why: "Смотровая 350/450 м. Билет онлайн — без очереди.", hours: "10:00–21:00",
-    station: "Tokyo Skytree", duration: "1.5 ч", cost: "≈2100–3400 ¥", booking: true, priority: "nice",
+    cat: "view", why: "Смотровая 350/450 м. Билет онлайн — без очереди. Рядом ТЦ Solamachi.",
+    hours: "10:00–21:00", station: "Tokyo Skytree", duration: "1.5 ч", cost: "≈2100–3400 ¥", booking: true, priority: "nice",
     lat: 35.7101, lng: 139.8107 },
-  { id: "teamlab", name: "teamLab Planets", local: "豊洲", city: "Токио", area: "Тоёсу",
-    cat: "museum", why: "Иммерсивный цифровой музей. Босиком, по воде. Билеты ТОЛЬКО заранее по слотам.",
-    hours: "09:00–22:00", station: "Shin-Toyosu", duration: "2 ч", cost: "≈3800 ¥", booking: true, priority: "must",
-    lat: 35.6486, lng: 139.7905 },
+  { id: "ueno", name: "Парк Уэно", local: "上野公園", city: "Токио", area: "Уэно",
+    cat: "nature", why: "Большой парк с музеями и зоопарком. Хорош в жару — много тени.",
+    hours: "05:00–23:00 (музеи ~09:30–17:00, пн закрыты)", station: "Ueno", duration: "2 ч", cost: "Парк бесплатно", priority: "nice",
+    lat: 35.7156, lng: 139.7745 },
+  { id: "ameyoko", name: "Рынок Амэёко", local: "アメ横", city: "Токио", area: "Уэно",
+    cat: "food", why: "Шумный рынок-улица под ж/д: стрит-фуд, сладости, мелочёвка.",
+    hours: "~10:00–20:00", station: "Ueno / Okachimachi", duration: "1 ч", cost: "по аппетиту", priority: "nice",
+    lat: 35.7080, lng: 139.7745 },
   { id: "shibuya", name: "Перекрёсток Сибуя", local: "渋谷スクランブル交差点", city: "Токио", area: "Сибуя",
-    cat: "landmark", why: "Знаменитый перекрёсток + Hachiko. Вид сверху из Shibuya Sky.", hours: "Круглосуточно",
-    station: "Shibuya", duration: "1 ч", cost: "Бесплатно", priority: "must",
+    cat: "landmark", why: "Знаменитый перекрёсток + статуя Хатико.", hours: "Круглосуточно",
+    station: "Shibuya", duration: "45 мин", cost: "Бесплатно", priority: "must",
     lat: 35.6595, lng: 139.7005 },
+  { id: "shibuyasky", name: "Shibuya Sky", local: "渋谷スカイ", city: "Токио", area: "Сибуя",
+    cat: "view", why: "Открытая крыша на 230 м — лучший панорамный закат Токио. Билет по слоту заранее.",
+    hours: "10:00–22:30 (вход до 21:20)", station: "Shibuya", duration: "1 ч", cost: "≈2500 ¥", booking: true, priority: "must",
+    lat: 35.6580, lng: 139.7016 },
   { id: "meiji", name: "Святилище Мэйдзи", local: "明治神宮", city: "Токио", area: "Харадзюку",
-    cat: "temple", why: "Лесное синтоистское святилище в центре города. Рядом — Такэсита-дори.",
-    hours: "Рассвет–закат", station: "Harajuku", duration: "1–1.5 ч", cost: "Бесплатно", priority: "nice",
+    cat: "temple", why: "Лесное синтоистское святилище — оазис тишины у Харадзюку.",
+    hours: "рассвет–закат", station: "Harajuku", duration: "1–1.5 ч", cost: "Бесплатно", priority: "must",
     lat: 35.6764, lng: 139.6993 },
+  { id: "takeshita", name: "Такэсита-дори", local: "竹下通り", city: "Токио", area: "Харадзюку",
+    cat: "shopping", why: "Молодёжная улица Харадзюку: мода, крепы, фотобудки. Ярко и шумно.",
+    hours: "~10:00–20:00", station: "Harajuku", duration: "1 ч", cost: "—", priority: "nice",
+    lat: 35.6716, lng: 139.7053 },
+  { id: "tocho", name: "Смотровая мэрии Токио", local: "都庁展望室", city: "Токио", area: "Синдзюку",
+    cat: "view", why: "Бесплатная смотровая 202 м. В ясный день видно Фудзи.",
+    hours: "09:30–22:00", station: "Tochomae / Shinjuku", duration: "45 мин", cost: "Бесплатно", priority: "nice",
+    lat: 35.6896, lng: 139.6917 },
+  { id: "omoide", name: "Омоидэ-Ёкотё", local: "思い出横丁", city: "Токио", area: "Синдзюку",
+    cat: "food", why: "Переулки с якитори и крошечными барами — атмосферный ужин в Синдзюку.",
+    hours: "вечер", station: "Shinjuku", duration: "1.5 ч", cost: "ужин ≈2000–3000 ¥", priority: "nice",
+    lat: 35.6939, lng: 139.6996 },
+  { id: "teamlab", name: "teamLab Planets", local: "チームラボプラネッツ · Toyosu", city: "Токио", area: "Тоёсу",
+    cat: "museum", why: "Иммерсивный цифровой музей: босиком, по воде. Билеты ТОЛЬКО заранее, слот по 30 мин.",
+    hours: "09:00–22:00 (вход до 21:00)", station: "Shin-Toyosu", duration: "1.5–2 ч", cost: "≈3200 ¥", booking: true, priority: "must",
+    lat: 35.6486, lng: 139.7905 },
+  { id: "odaiba", name: "Одайба", local: "お台場", city: "Токио", area: "Одайба",
+    cat: "landmark", why: "Набережная залива: статуя Unicorn Gundam, Радужный мост, ТЦ.",
+    hours: "круглосуточно (ТЦ до 21:00)", station: "Odaiba-kaihinkoen", duration: "2 ч", cost: "Бесплатно", priority: "nice",
+    lat: 35.6256, lng: 139.7756 },
+  { id: "ginza", name: "Гиндза", local: "銀座", city: "Токио", area: "Гиндза",
+    cat: "shopping", why: "Премиальный квартал: флагманы, Uniqlo, кафе. По выходным улица пешеходная.",
+    hours: "~11:00–20:00", station: "Ginza", duration: "1.5 ч", cost: "—", priority: "nice",
+    lat: 35.6717, lng: 139.7650 },
+  { id: "imperial", name: "Имп. дворец — Вост. сады", local: "皇居東御苑", city: "Токио", area: "Маруноути",
+    cat: "nature", why: "Сады бывшего замка Эдо. Бесплатно. Закрыто по пн и пт.",
+    hours: "09:00–17:00 (пн, пт закрыто)", station: "Otemachi / Tokyo", duration: "1.5 ч", cost: "Бесплатно", priority: "nice",
+    lat: 35.6852, lng: 139.7528 },
+  { id: "akihabara", name: "Акихабара", local: "秋葉原", city: "Токио", area: "Акихабара",
+    cat: "shopping", why: "Электроника, аниме/манга, ретро-игры, гача и мейд-кафе.",
+    hours: "~10:00–20:00", station: "Akihabara", duration: "1.5–2 ч", cost: "—", priority: "nice",
+    lat: 35.6987, lng: 139.7730 },
+  { id: "yanaka", name: "Янака (старый Токио)", local: "谷中", city: "Токио", area: "Янака",
+    cat: "landmark", why: "Уцелевший старый квартал: улочка Янака-Гинза, храмы, коты, кофейни.",
+    hours: "днём", station: "Nippori", duration: "1.5 ч", cost: "—", priority: "nice",
+    lat: 35.7281, lng: 139.7660 },
   { id: "ichiran", name: "Рамен Ichiran", local: "一蘭", city: "Токио", area: "Сибуя",
-    cat: "food", why: "Тонкоцу-рамен в индивидуальных кабинках. Культовый опыт.", hours: "Круглосуточно",
-    station: "Shibuya", duration: "45 мин", cost: "≈1200 ¥", priority: "nice",
+    cat: "food", why: "Тонкоцу-рамен в индивидуальных кабинках — культовый перекус.",
+    hours: "круглосуточно", station: "Shibuya", duration: "45 мин", cost: "≈1200 ¥", priority: "nice",
     lat: 35.6617, lng: 139.6987 },
 
-  // ---- Киото ----
+  // ===== ДЕНЬ-ТРИП: ФУДЗИ (из Синдзюку автобусом) =====
+  { id: "chureito", name: "Пагода Чурэйто", local: "忠霊塔 · Arakurayama", city: "Фудзи", area: "Фудзиёсида",
+    cat: "view", why: "Открыточный кадр: пагода + Фудзи. ~400 ступеней. Видимость лучше утром.",
+    hours: "круглосуточно", station: "Shimo-Yoshida", duration: "1.5 ч", cost: "Бесплатно", priority: "must",
+    lat: 35.4949, lng: 138.8074 },
+  { id: "kawaguchiko", name: "Озеро Кавагутико", local: "河口湖", city: "Фудзи", area: "Кавагутико",
+    cat: "nature", why: "Главное озеро Пяти озёр: виды на Фудзи, прогулка, канатка Kachi Kachi.",
+    hours: "круглосуточно", station: "Kawaguchiko", duration: "2–3 ч", cost: "Бесплатно (канатка ≈900 ¥)", priority: "must",
+    lat: 35.5171, lng: 138.7547 },
+  { id: "oishi", name: "Парк Оиси", local: "大石公園", city: "Фудзи", area: "Кавагутико",
+    cat: "nature", why: "Северный берег: в июле — поля лаванды на фоне Фудзи. Доезд кольцевым автобусом.",
+    hours: "круглосуточно", station: "кольцевой автобус", duration: "1 ч", cost: "Бесплатно", priority: "nice",
+    lat: 35.5363, lng: 138.7430 },
+
+  // ===== ДЕНЬ-ТРИП: КИОТО (из Осаки поездом ~15–45 мин) =====
   { id: "fushimi", name: "Фусими Инари", local: "伏見稲荷大社", city: "Киото", area: "Фусими",
-    cat: "temple", why: "Тысячи красных торий вверх по горе. Идти к 7–8 утра ради пустых кадров.",
-    hours: "Круглосуточно", station: "Inari", duration: "2–3 ч", cost: "Бесплатно", priority: "must",
+    cat: "temple", why: "Тысячи красных торий вверх по горе. К 7–8 утра — ради пустых кадров.",
+    hours: "круглосуточно", station: "Inari (JR) / Fushimi-Inari (Keihan)", duration: "2 ч", cost: "Бесплатно", priority: "must",
     lat: 34.9671, lng: 135.7727 },
   { id: "kiyomizu", name: "Киёмидзу-дэра", local: "清水寺", city: "Киото", area: "Хигасияма",
-    cat: "temple", why: "Деревянная веранда с видом на город. Вокруг — старые улочки Хигасиямы.",
-    hours: "06:00–18:00", station: "Kiyomizu-michi (bus)", duration: "1.5 ч", cost: "≈400 ¥", priority: "must",
+    cat: "temple", why: "Деревянная веранда с видом на город + старые улочки Саннэндзака.",
+    hours: "06:00–18:00", station: "авт. от Kyoto / Gion-Shijo", duration: "1.5 ч", cost: "≈400 ¥", priority: "must",
     lat: 34.9949, lng: 135.7851 },
-  { id: "arashiyama", name: "Бамбуковая роща Арасияма", local: "嵐山", city: "Киото", area: "Арасияма",
-    cat: "nature", why: "Бамбуковая аллея + мост Тогэцукё. Очень рано или вечером — без толп.",
-    hours: "Круглосуточно", station: "Arashiyama", duration: "2–3 ч", cost: "Бесплатно", priority: "must",
-    lat: 35.0170, lng: 135.6716 },
+  { id: "gion", name: "Гион", local: "祇園", city: "Киото", area: "Гион",
+    cat: "landmark", why: "Квартал гейш: улица Ханамикодзи, чайные дома, вечерняя атмосфера.",
+    hours: "днём и вечером", station: "Gion-Shijo", duration: "1 ч", cost: "—", priority: "nice",
+    lat: 35.0037, lng: 135.7750 },
   { id: "nishiki", name: "Рынок Нисики", local: "錦市場", city: "Киото", area: "Центр",
-    cat: "food", why: "«Кухня Киото» — 400 м уличной еды и местных деликатесов.", hours: "10:00–18:00",
-    station: "Shijo", duration: "1 ч", cost: "по аппетиту", priority: "nice",
+    cat: "food", why: "«Кухня Киото» — 400 м уличной еды и местных деликатесов.",
+    hours: "10:00–18:00", station: "Shijo / Karasuma", duration: "1 ч", cost: "по аппетиту", priority: "nice",
     lat: 35.0050, lng: 135.7649 },
+  { id: "arashiyama", name: "Бамбуковая роща Арасияма", local: "嵐山", city: "Киото", area: "Арасияма",
+    cat: "nature", why: "Бамбуковая аллея + мост Тогэцукё. Альтернатива Хигасияме — выбрать по настроению.",
+    hours: "круглосуточно", station: "Saga-Arashiyama / Arashiyama", duration: "2 ч", cost: "Бесплатно", priority: "nice",
+    lat: 35.0170, lng: 135.6716 },
+
+  // ===== ДЕНЬ-ТРИП: НАРА (из Осаки поездом ~45 мин) =====
+  { id: "narapark", name: "Парк Нара (олени)", local: "奈良公園", city: "Нара", area: "Нара",
+    cat: "nature", why: "Сотни ручных оленей кланяются за крекеры (сика-сэмбэй). Главная фишка Нары.",
+    hours: "круглосуточно", station: "Kintetsu-Nara", duration: "1.5 ч", cost: "Бесплатно (крекеры ≈200 ¥)", priority: "must",
+    lat: 34.6851, lng: 135.8430 },
+  { id: "todaiji", name: "Тодай-дзи (Большой Будда)", local: "東大寺", city: "Нара", area: "Нара",
+    cat: "temple", why: "Огромный деревянный зал с 15-метровым бронзовым Буддой. Внутри парка.",
+    hours: "07:30–17:30", station: "Kintetsu-Nara", duration: "1 ч", cost: "≈800 ¥", priority: "must",
+    lat: 34.6890, lng: 135.8398 },
+  { id: "kasuga", name: "Касуга-тайся", local: "春日大社", city: "Нара", area: "Нара",
+    cat: "temple", why: "Святилище с тысячами каменных и бронзовых фонарей в лесу.",
+    hours: "06:30–17:30", station: "Kintetsu-Nara", duration: "1 ч", cost: "территория бесплатно", priority: "nice",
+    lat: 34.6818, lng: 135.8483 },
+  { id: "naramachi", name: "Нарамати", local: "ならまち", city: "Нара", area: "Нара",
+    cat: "food", why: "Старый купеческий квартал: кафе, сладости, ремёсла — спокойный обед.",
+    hours: "днём", station: "Kintetsu-Nara", duration: "1 ч", cost: "по аппетиту", priority: "nice",
+    lat: 34.6790, lng: 135.8270 },
+
+  // ===== ОСАКА =====
+  { id: "osakacastle", name: "Осакский замок", local: "大阪城", city: "Осака", area: "Осакадзё",
+    cat: "landmark", why: "Символ города в парке. Внутри музей, сверху смотровая.",
+    hours: "09:00–17:00", station: "Osakajokoen / Tanimachi 4-chome", duration: "1.5 ч", cost: "≈600 ¥", priority: "must",
+    lat: 34.6873, lng: 135.5259 },
+  { id: "dotonbori", name: "Дотонбори", local: "道頓堀", city: "Осака", area: "Намба",
+    cat: "food", why: "Неоновая река, вывеска Glico, такояки и окономияки. Сердце вечерней Осаки.",
+    hours: "круглосуточно (вечером лучше)", station: "Namba", duration: "2 ч", cost: "ужин ≈2000 ¥", priority: "must",
+    lat: 34.6687, lng: 135.5013 },
+  { id: "kuromon", name: "Рынок Куромон", local: "黒門市場", city: "Осака", area: "Нихонбаси",
+    cat: "food", why: "«Кухня Осаки»: морепродукты, фрукты, стрит-фуд тут же на месте.",
+    hours: "09:00–18:00", station: "Nippombashi", duration: "1 ч", cost: "по аппетиту", priority: "nice",
+    lat: 34.6657, lng: 135.5063 },
+  { id: "shinsaibashi", name: "Синсайбаси", local: "心斎橋", city: "Осака", area: "Синсайбаси",
+    cat: "shopping", why: "Километровая крытая аркада — шопинг в любую погоду.",
+    hours: "~11:00–21:00", station: "Shinsaibashi", duration: "1 ч", cost: "—", priority: "nice",
+    lat: 34.6723, lng: 135.5009 },
+  { id: "umeda", name: "Umeda Sky Building", local: "梅田スカイビル", city: "Осака", area: "Умэда",
+    cat: "view", why: "«Парящий сад» — смотровая с открытым кольцом наверху. Хорош на закат.",
+    hours: "09:30–22:30", station: "Osaka / Umeda", duration: "1 ч", cost: "≈1500 ¥", priority: "nice",
+    lat: 34.7053, lng: 135.4901 },
+  { id: "shinsekai", name: "Синсэкай и Цутэнкаку", local: "新世界・通天閣", city: "Осака", area: "Синсэкай",
+    cat: "food", why: "Ретро-квартал: башня Цутэнкаку и кусикацу (жареные шпажки). Колоритно.",
+    hours: "днём и вечером", station: "Ebisucho / Dobutsuen-mae", duration: "1.5 ч", cost: "ужин ≈2000 ¥", priority: "nice",
+    lat: 34.6525, lng: 135.5063 },
 ];
 
 const DAYS = [
-  {
-    date: "2026-07-10", city: "Токио", area: "Асакуса → Сибуя",
-    note: "День прилёта/первый день. Утро спокойное, вечером — энергия Сибуи.",
+  // ---------- ТОКИО (8–14 июля · порядок дней подвижный) ----------
+  { city: "Токио", label: "Восток: Асакуса и Уэно", area: "Асакуса · Сумида · Уэно",
+    note: "Традиционный Токио. С утра — пока нежарко и мало толп.",
     items: [
       { time: "09:30", placeId: "sensoji" },
       { time: "11:00", placeId: "skytree" },
-      { type: "meal", time: "13:00", title: "Обед", note: "район Асакуса/Сумида" },
-      { time: "15:30", placeId: "teamlab" },
-      { time: "18:30", placeId: "shibuya" },
-      { time: "20:00", placeId: "ichiran" },
-    ],
-  },
-  {
-    date: "2026-07-11", city: "Токио", area: "Харадзюку / Сибуя",
-    note: "Зелень + молодёжные районы. teamLab уже позади — день полегче.",
+      { type: "meal", time: "13:00", title: "Обед", note: "Асакуса / ТЦ Solamachi" },
+      { time: "15:00", placeId: "ueno" },
+      { time: "17:00", placeId: "ameyoko" },
+    ]},
+  { city: "Токио", label: "Запад: Сибуя, Харадзюку, Синдзюку", area: "Харадзюку · Сибуя · Синдзюку",
+    note: "Современный и молодёжный Токио. Закат — на Shibuya Sky (бронь по слоту заранее).",
     items: [
       { time: "10:00", placeId: "meiji" },
-      { type: "free", time: "12:00", title: "Такэсита-дори + обед", note: "стрит-фуд Харадзюку" },
-      { type: "transit", time: "16:00", title: "Синкансэн в Киото", note: "≈2 ч 15 мин · зарезервировать места" },
-    ],
-  },
-  {
-    date: "2026-07-12", city: "Киото", area: "Фусими / Хигасияма",
-    note: "Раннее утро критично для Фусими Инари (толпы после 9).",
+      { time: "11:30", placeId: "takeshita" },
+      { type: "meal", time: "13:00", title: "Обед", note: "крепы / кафе в Харадзюку" },
+      { time: "14:30", placeId: "shibuya" },
+      { time: "16:30", placeId: "shibuyasky" },
+      { time: "18:30", placeId: "omoide" },
+    ]},
+  { city: "Токио", label: "Залив: teamLab, Одайба, Гиндза", area: "Тоёсу · Одайба · Гиндза",
+    note: "teamLab Planets — строго по времени входа: поставьте слот заранее и стройте день от него.",
     items: [
-      { time: "07:30", placeId: "fushimi" },
-      { type: "meal", time: "11:30", title: "Обед", note: "район Гион" },
-      { time: "13:30", placeId: "kiyomizu" },
-      { time: "16:30", placeId: "nishiki" },
-    ],
-  },
+      { time: "10:00", placeId: "teamlab" },
+      { type: "meal", time: "12:30", title: "Обед", note: "Toyosu / Odaiba" },
+      { time: "14:00", placeId: "odaiba" },
+      { time: "17:00", placeId: "ginza" },
+    ]},
+  { city: "Токио", label: "День-трип: гора Фудзи", area: "Кавагутико · Фудзиёсида", flex: true,
+    note: "Гибкий день — ставьте на самый ясный прогноз: летом Фудзи часто в облаках, утром видимость лучше. Без машины: автобус из Синдзюку, на месте — кольцевые автобусы.",
+    items: [
+      { type: "transit", time: "07:15", title: "Автобус Синдзюку → Кавагутико", note: "≈2 ч, ≈2300 ¥, бронь заранее (рейсы раскупают)" },
+      { time: "09:45", placeId: "chureito" },
+      { type: "meal", time: "12:00", title: "Обед", note: "лапша хото у озера" },
+      { time: "13:30", placeId: "kawaguchiko" },
+      { time: "15:30", placeId: "oishi" },
+      { type: "transit", time: "17:30", title: "Автобус обратно в Синдзюку", note: "обратный билет берите заранее" },
+    ]},
+  { city: "Токио", label: "Центр: дворец и Акихабара", area: "Маруноути · Акихабара",
+    note: "Гибкий/буферный день. Вост. сады дворца закрыты по пн и пт — учтите при перестановке.",
+    items: [
+      { time: "10:00", placeId: "imperial" },
+      { type: "meal", time: "12:00", title: "Обед", note: "Marunouchi / Tokyo St." },
+      { time: "13:30", placeId: "akihabara" },
+      { time: "16:00", placeId: "ginza" },
+    ]},
+  { city: "Токио", label: "Лёгкое утро + переезд в Осаку", area: "Янака · Токийский вокзал",
+    note: "Полдня: чек-аут, чемоданы в локеры/доставка, неспешное утро. Вечером — синкансэн.",
+    items: [
+      { time: "10:00", placeId: "yanaka" },
+      { type: "meal", time: "12:30", title: "Обед + омияге", note: "Tokyo Station (Character St., бэнто)" },
+      { type: "transit", time: "18:00", title: "Синкансэн Токио → Син-Осака", note: "≈2 ч 30 мин · места лучше зарезервировать. Прибытие ~22:00" },
+    ]},
+
+  // ---------- ОСАКА (14–20 июля · порядок дней подвижный) ----------
+  { city: "Осака", label: "Центр и Дотонбори", area: "Осакадзё · Намба · Синсайбаси",
+    note: "Знакомство с городом. Вечер — обязательно неоновый Дотонбори.",
+    items: [
+      { time: "10:00", placeId: "osakacastle" },
+      { type: "meal", time: "13:00", title: "Обед", note: "такояки / окономияки" },
+      { time: "14:30", placeId: "kuromon" },
+      { time: "16:00", placeId: "shinsaibashi" },
+      { time: "19:00", placeId: "dotonbori" },
+    ]},
+  { city: "Осака", label: "День-трип: Киото", area: "Фусими · Хигасияма · Гион", flex: true,
+    note: "Гибкий день. Из Осаки поезд 15–45 мин. Фусими Инари — к 7–8 утра, потом толпы.",
+    items: [
+      { type: "transit", time: "07:00", title: "Поезд Осака → Киото", note: "JR / Hankyu / Keihan" },
+      { time: "07:45", placeId: "fushimi" },
+      { time: "10:30", placeId: "kiyomizu" },
+      { type: "meal", time: "12:30", title: "Обед", note: "Гион / Хигасияма" },
+      { time: "14:00", placeId: "gion" },
+      { time: "15:30", placeId: "nishiki" },
+    ]},
+  { city: "Осака", label: "День-трип: Нара", area: "Парк Нара", flex: true,
+    note: "Гибкий день, можно короче. Поезд ~45 мин (Kintetsu/JR). Олени, Большой Будда, фонари.",
+    items: [
+      { type: "transit", time: "08:30", title: "Поезд Осака → Нара", note: "Kintetsu от Намбы ~45 мин" },
+      { time: "09:30", placeId: "narapark" },
+      { time: "10:30", placeId: "todaiji" },
+      { type: "meal", time: "12:00", title: "Обед", note: "Нарамати" },
+      { time: "13:30", placeId: "kasuga" },
+      { time: "15:00", placeId: "naramachi" },
+    ]},
+  { city: "Осака", label: "Умэда и Синсэкай", area: "Умэда · Синсэкай",
+    note: "Гибкий день в городе. Альтернатива — день-трип в Кобе или замок Химэдзи (тоже поездом).",
+    items: [
+      { time: "10:30", placeId: "umeda" },
+      { type: "meal", time: "13:00", title: "Обед", note: "Умэда" },
+      { time: "15:00", placeId: "shinsekai" },
+    ]},
+  { city: "Осака", label: "Буфер + сборы (вылет рано утром)", area: "свободно",
+    note: "Лёгкий последний день: любимое на повтор, шопинг, упаковка. ВАЖНО: вылет 20 июля в 09:00 из KIX — быть в аэропорту к 06:30–07:00. Первый поезд из Намбы прибывает в KIX лишь ~05:58, это впритык. Стоит подумать о ночёвке у аэропорта или о трансфере заранее.",
+    items: [
+      { type: "free", time: "утро", title: "Шопинг / любимое место", note: "налегке" },
+      { type: "free", time: "вечер", title: "Упаковка + ранний сон", note: "выезд завтра ~05:30" },
+    ]},
 ];
 
 /* ============================================================================
@@ -406,6 +607,19 @@ const LS_KEY = "japan2026_visited";
 let visited = new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]"));
 const saveVisited = () => localStorage.setItem(LS_KEY, JSON.stringify([...visited]));
 
+// Отели-базы (координаты примерные — поправьте при заселении)
+const HOTELS = {
+  tokyo: { name: "MI•HOTEL ATELIER SHINJUKU", local: "北新宿4-12-21 · Синдзюку", city: "Токио",
+           station: "Shin-Okubo / Nakano-Sakaue", lat: 35.7016, lng: 139.6916 },
+  osaka: { name: "Hotel Arashi Nippombashi", local: "日本橋5-6-19 · Нанива", city: "Осака",
+           station: "Nippombashi / Ebisucho", lat: 34.6585, lng: 135.5065 },
+};
+// База дня: Фудзи привязан к токийскому отелю, Киото/Нара — к осакскому
+function baseForDay(day) {
+  return (day.city === "Осака" || day.city === "Киото" || day.city === "Нара") ? HOTELS.osaka : HOTELS.tokyo;
+}
+const BED_ICON = '<path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6"/>';
+
 const WD = ["вс","пн","вт","ср","чт","пт","сб"];
 const MO = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
 function fmtDate(iso) {
@@ -419,22 +633,23 @@ function mapsLink(p) {
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
-// Маршрут одного дня в Google Maps (через все точки-места по порядку, транспорт)
+// Маршрут одного дня в Google Maps: отель → точки по порядку → обратно в отель (транспорт)
 function dayRouteUrl(day) {
   const pts = day.items.filter(it => it.placeId && placeById[it.placeId]).map(it => placeById[it.placeId]);
   if (!pts.length) return null;
+  const base = baseForDay(day);
+  const stops = base ? [base, ...pts, base] : pts;
   const loc = p => (p.lat != null && p.lng != null) ? `${p.lat},${p.lng}` : `${p.name} ${p.city} Japan`;
   const enc = encodeURIComponent;
-  if (pts.length === 1)
-    return `https://www.google.com/maps/dir/?api=1&destination=${enc(loc(pts[0]))}&travelmode=transit`;
-  const origin = enc(loc(pts[0]));
-  const destination = enc(loc(pts[pts.length - 1]));
-  const waypoints = pts.slice(1, -1).slice(0, 9).map(p => enc(loc(p))).join("%7C"); // Google: до 9 промежуточных точек
+  const origin = enc(loc(stops[0]));
+  const destination = enc(loc(stops[stops.length - 1]));
+  const waypoints = stops.slice(1, -1).slice(0, 9).map(p => enc(loc(p))).join("%7C"); // Google: до 9 промежуточных точек
   let u = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=transit`;
   if (waypoints) u += `&waypoints=${waypoints}`;
   return u;
 }
 const ROUTE_ICON = '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>';
+const FLEX_ICON = '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>';
 
 function placeCard(p, withChk = true) {
   const cm = CAT_META[p.cat] || CAT_META.other;
@@ -477,10 +692,10 @@ function renderDays() {
   const nav = document.getElementById("dayNav");
   const cont = document.getElementById("daysContainer");
   nav.innerHTML = DAYS.map((d, i) =>
-    `<button class="daychip" ${i===0?'aria-current="true"':''} onclick="jumpDay(${i})">
-       <div class="dn">День ${i+1}</div>
-       <div class="dd">${fmtDate(d.date)}</div>
-       <div class="dc">${d.city}</div>
+    `<button class="daychip" ${i===0?'aria-current="true"':''} ${d.flex?'data-flex="1"':''} onclick="jumpDay(${i})">
+       <div class="dn">День ${i+1}${d.flex?" · гибкий":""}</div>
+       <div class="dd">${d.city}</div>
+       <div class="dc">${d.label || ""}</div>
      </button>`).join("");
 
   cont.innerHTML = DAYS.map((d, i) => {
@@ -496,9 +711,11 @@ function renderDays() {
       </div>`;
     }).join("");
     const route = dayRouteUrl(d);
+    const base = baseForDay(d);
     return `<section class="day" id="day-${i}">
-      <div class="day-head"><h2>День ${i+1}</h2><span class="when">${fmtDate(d.date)} · ${d.city}</span></div>
+      <div class="day-head"><h2>День ${i+1}</h2><span class="when">${d.city}${d.label ? " · " + d.label : ""}</span>${d.flex ? `<span class="flexbadge">${svg(FLEX_ICON)}гибкий день</span>` : ""}</div>
       ${d.area ? `<div class="day-area">${svg('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>')}${d.area}</div>` : ""}
+      ${base ? `<a class="day-base" href="${mapsLink(base)}" target="_blank" rel="noopener">${svg(BED_ICON)}База: ${base.name}</a>` : ""}
       ${d.note ? `<div class="day-note">${d.note}</div>` : ""}
       ${route ? `<div class="day-route"><a class="btn-route" href="${route}" target="_blank" rel="noopener">${svg(ROUTE_ICON)}Маршрут дня в Google Maps</a></div>` : ""}
       <div class="timeline">${rows}</div>
