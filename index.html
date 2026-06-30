@@ -256,6 +256,18 @@
   .areatab.active { background: var(--secondary); border-color: var(--secondary); color: #fff; }
   .areatab .cnt { font-size: .82em; opacity: .7; margin-left: 4px; }
 
+  /* ---------- Фильтр по типу места ---------- */
+  .cattabs { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+  .cattabs::-webkit-scrollbar { display: none; }
+  .cattab { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--surface);
+            color: var(--fg-soft); font-weight: 600; font-size: .8rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+            transition: color .15s ease, background .15s ease, border-color .15s ease; }
+  .cattab .catdot { width: 9px; height: 9px; border-radius: 50%; background: var(--cat, var(--fg-muted)); flex: none; }
+  .cattab .cnt { font-size: .82em; opacity: .7; }
+  .cattab:hover { color: var(--fg); }
+  .cattab.active { color: #fff; background: var(--cat, var(--primary)); border-color: var(--cat, var(--primary)); }
+  .cattab.active .catdot { background: #fff; }
+
   /* ---------- Города и районы ---------- */
   .toolbar { margin-bottom: 6px; }
   .citynav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 10px; margin: 0 -16px; scrollbar-width: none; }
@@ -311,6 +323,7 @@
     </label>
   </div>
   <nav class="areatabs" id="areaTabs" aria-label="Районы" hidden></nav>
+  <nav class="cattabs" id="catTabs" aria-label="Типы мест"></nav>
   <div id="placesContainer"></div>
   <p class="empty hidden" id="emptyMsg">Ничего не найдено.</p>
 
@@ -640,7 +653,7 @@ const CAT_META = {
   museum:   { ru: "Музей",     v: "museum"   },
   shopping: { ru: "Шопинг",    v: "shopping" },
   view:     { ru: "Смотровая", v: "view"     },
-  landmark: { ru: "Место",     v: "landmark" },
+  landmark: { ru: "Достопримечательность", v: "landmark" },
   other:    { ru: "Другое",    v: "other"    },
 };
 const ICONS = {
@@ -899,21 +912,41 @@ function setArea(a) {
   renderPlaces();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-function renderPlaces() {
+let activeCat = "all";
+// Список в текущей области (город + район + поиск), без фильтра по типу
+function scopeList() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
+  return PLACES.filter(p => {
+    if (activeCity !== "all" && p.city !== activeCity) return false;
+    if (activeCity !== "all" && activeArea !== "all" && (p.area || "—") !== activeArea) return false;
+    return match(p);
+  });
+}
+function renderCatTabs(base) {
+  let h = `<button class="cattab ${activeCat==="all"?"active":""}" onclick="setCat('all')">Все типы<span class="cnt">${base.length}</span></button>`;
+  Object.keys(CAT_META).forEach(c => {
+    const n = base.filter(p => p.cat === c).length;
+    if (!n) return;
+    h += `<button class="cattab ${activeCat===c?"active":""}" style="--cat:var(--cat-${CAT_META[c].v})" onclick="setCat('${c}')"><span class="catdot"></span>${CAT_META[c].ru}<span class="cnt">${n}</span></button>`;
+  });
+  document.getElementById("catTabs").innerHTML = h;
+}
+function setCat(c) { activeCat = c; renderPlaces(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+function renderPlaces() {
+  const base = scopeList();
+  renderCatTabs(base);
+  const visible = base.filter(p => activeCat === "all" || p.cat === activeCat);
+
   let html = "", any = false;
-
   orderedCities().forEach((city, ci) => {
-    if (activeCity !== "all" && city !== activeCity) return;
-    const inCity = PLACES.filter(p => p.city === city && match(p));
+    const inCity = visible.filter(p => p.city === city);
     if (!inCity.length) return;
-
-    let areas = [];
-    inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
-    if (activeCity !== "all" && activeArea !== "all") areas = areas.filter(a => a === activeArea);
-    if (!areas.length) return;
     any = true;
+
+    const areas = [];
+    inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
 
     const body = areas.map(a => {
       const cards = inCity.filter(p => (p.area || "—") === a);
