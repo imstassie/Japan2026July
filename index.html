@@ -327,16 +327,6 @@
   <div id="placesContainer"></div>
   <p class="empty hidden" id="emptyMsg">Ничего не найдено.</p>
 
-  <div class="help">
-    <h3>Как редактировать</h3>
-    <p>Все места хранятся в блоке <code>PLACES</code> в конце файла <code>index.html</code>. Группировка строится автоматически: <b>город</b> (<code>city</code>) → <b>район</b> (<code>area</code>).</p>
-    <ul>
-      <li>Чтобы перенести место в другой город или район — поменяйте поля <code>city</code> / <code>area</code>.</li>
-      <li>Поля места: категория, часы работы, станция, бронь, приоритет, координаты.</li>
-      <li>Отметки «посещено» сохраняются в браузере (localStorage) — у каждого устройства свои.</li>
-      <li>Кнопка «В картах» открывает Google Maps по координатам.</li>
-    </ul>
-  </div>
 </main>
 
 <script>
@@ -457,6 +447,24 @@ const PLACES = [
     cat: "nature", why: "Деревня с восемью прозрачными прудами родниковой воды и видом на Фудзи.",
     hours: "круглосуточно (лавки ~09:00–17:00)", station: "автобус от Кавагутико / Фудзисан", duration: "1–1.5 ч", cost: "Бесплатно", priority: "nice",
     lat: 35.4596, lng: 138.8307 },
+  { id: "haostay_coffee", name: "HAOSTAY Coffee", local: "Kawaguchiko · кофейня", city: "Фудзи", area: "Кавагутико",
+    cat: "food", why: "Уютная кофейня у Кавагутико — приятная остановка между точками.",
+    station: "Kawaguchiko", duration: "30–45 мин", cost: "≈1000 ¥", priority: "nice" },
+  { id: "fujiyama_cookie", name: "FUJIYAMA COOKIE", local: "Kawaguchiko · печенье", city: "Фудзи", area: "Кавагутико",
+    cat: "food", why: "Печенье в форме Фудзи — популярный перекус и сувенир.",
+    station: "Kawaguchiko", duration: "20 мин", cost: "от ≈300 ¥", priority: "nice" },
+  { id: "fuji_ramen", name: "Рамен «Фудзи»", local: "ふじらーめん · Fuji Ramen", city: "Фудзи", area: "Кавагутико",
+    cat: "food", why: "Местный рамен — сытный обед в районе озёр Фудзи.",
+    station: "Kawaguchiko", duration: "45 мин", cost: "≈1000 ¥", priority: "nice" },
+  { id: "honcho_chacha", name: "Honcho Cha Cha", local: "本町茶茶 · Фудзиёсида", city: "Фудзи", area: "Фудзиёсида",
+    cat: "food", why: "Кафе-чайная на ретро-улице Хонтё в Фудзиёсиде.",
+    station: "Shimo-Yoshida / Fujisan", duration: "45 мин", cost: "≈1000 ¥", priority: "nice" },
+  { id: "menreizan", name: "Мэндокоро Рэйдзан", local: "麺処麗山 · Shimoyoshida", city: "Фудзи", area: "Фудзиёсида",
+    cat: "food", why: "Лапшичная в Симоёсиде — насыщенная местная лапша.",
+    station: "Shimo-Yoshida", duration: "45 мин", cost: "≈1100 ¥", priority: "nice" },
+  { id: "houtou_fudou", name: "Хото Фудо (Кавагутико, сев.)", local: "ほうとう不動 河口湖北本店", city: "Фудзи", area: "Кавагутико",
+    cat: "food", why: "Знаменитая хото — местная плоская лапша в горячем мисо-бульоне с овощами. Фирменное блюдо региона.",
+    station: "Kawaguchiko", duration: "45 мин", cost: "≈1200 ¥", priority: "nice" },
 
   // ===== ДЕНЬ-ТРИП: КАМАКУРА (из Токио поездом ~1 ч) =====
   { id: "tsurugaoka", name: "Цуругаока Хатимангу", local: "鶴岡八幡宮", city: "Камакура", area: "Камакура",
