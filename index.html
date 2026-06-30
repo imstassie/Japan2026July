@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   /* ============================================================
      Дизайн-система (ui-ux-pro-max · "Adventure orange + map teal")
@@ -328,6 +328,16 @@
   .plan-note { font-size: .8rem; color: var(--fg-muted); margin: 8px 2px 0; }
   .plan-empty { text-align: center; color: var(--fg-soft); background: var(--surface); border: 1px dashed var(--border-strong);
                 border-radius: var(--r-lg); padding: 40px 20px; font-size: .92rem; margin-top: 10px; }
+  .plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .plan-count { font-weight: 700; color: var(--fg-soft); font-size: .9rem; }
+  .plan-clear { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600; cursor: pointer;
+                color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, white);
+                border: 1px solid color-mix(in srgb, var(--destructive) 24%, white); padding: 7px 12px; border-radius: 999px; transition: background .15s ease; }
+  .plan-clear:hover { background: color-mix(in srgb, var(--destructive) 15%, white); }
+  .plan-clear svg { width: 14px; height: 14px; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 11px; margin: 10px 2px 0; }
+  .leg { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--fg-soft); }
+  .leg-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
 </style>
 </head>
 <body>
@@ -821,7 +831,29 @@ let plan = new Set(JSON.parse(localStorage.getItem(PLAN_KEY) || "[]"));
 const savePlan = () => localStorage.setItem(PLAN_KEY, JSON.stringify([...plan]));
 const PLUS_ICON = '<path d="M12 5v14M5 12h14"/>';
 const CHECK_ICON = '<path d="M20 6 9 17l-5-5"/>';
+const TRASH_ICON = '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/>';
 let planMapObj = null;
+
+// Цвета меток по типу места (совпадают с --cat-*)
+const CAT_COLORS = { temple:"#0891B2", food:"#D97706", nature:"#16A34A", museum:"#7C3AED", shopping:"#DB2777", view:"#0EA5E9", landmark:"#EA580C", other:"#64748B" };
+function catColor(c) { return CAT_COLORS[c] || CAT_COLORS.other; }
+
+// Приблизительные координаты для кафе/ресторанов без точных координат (только для меток на карте;
+// кнопка «В картах» у них ищет по точному названию). Уровень — район/станция.
+const EXTRA_COORDS = {
+  cityshop_noodle: [35.6610, 139.6996], age3q: [35.6716, 139.7050], shakeshack_shibuya: [35.6596, 139.6994],
+  gyukatsu_motomura: [35.6882, 139.7008], coco_ichibanya: [35.7008, 139.6986], sushiro_shinjuku: [35.6942, 139.7028],
+  okashi_machioka: [35.6906, 139.6986], dosanko_plaza: [35.6748, 139.7630], cloud_club_matcha: [35.6705, 139.7665],
+  matsunoya: [35.6958, 139.7062],
+  haostay_coffee: [35.4992, 138.7562], fujiyama_cookie: [35.5072, 138.7585], fuji_ramen: [35.4996, 138.7600],
+  honcho_chacha: [35.4872, 138.7995], menreizan: [35.4882, 138.8030], houtou_fudou: [35.5180, 138.7558],
+  hatoya_kamakura: [35.3196, 139.5510], kamakura_misui: [35.3190, 139.5500],
+};
+function coordsOf(p) {
+  if (p.lat != null && p.lng != null) return [p.lat, p.lng];
+  const e = EXTRA_COORDS[p.id];
+  return e ? e : null;
+}
 
 // Отели-базы (координаты примерные — поправьте при заселении)
 const HOTELS = {
@@ -1149,30 +1181,46 @@ function cityPlanRouteUrl(city, places) {
   if (!places.length) return null;
   const base = planBase(city);
   const stops = [base, ...places, base];
-  const loc = p => (p.lat != null && p.lng != null) ? `${p.lat},${p.lng}` : `${p.name} ${p.city} Japan`;
+  const loc = p => { const c = coordsOf(p); return c ? `${c[0]},${c[1]}` : `${p.name} ${p.city} Japan`; };
   const enc = encodeURIComponent;
   const waypoints = stops.slice(1, -1).slice(0, 9).map(p => enc(loc(p))).join("%7C");
   let u = `https://www.google.com/maps/dir/?api=1&origin=${enc(loc(stops[0]))}&destination=${enc(loc(stops[stops.length-1]))}&travelmode=transit`;
   if (waypoints) u += `&waypoints=${waypoints}`;
   return u;
 }
+function clearPlan() {
+  if (!plan.size) return;
+  if (!confirm("Очистить весь план? Отметки «посещено» останутся.")) return;
+  plan.clear();
+  savePlan();
+  renderTabs();
+  renderPlaces();
+}
 function initPlanMap(planned) {
   const el = document.getElementById("planMap");
   if (!el) return;
-  if (typeof L === "undefined") { el.innerHTML = '<div class="map-fallback">Карта появится при наличии интернета (онлайн-карта OpenStreetMap).</div>'; return; }
+  if (typeof maplibregl === "undefined") { el.innerHTML = '<div class="map-fallback">Карта появится при наличии интернета.</div>'; return; }
   if (planMapObj) { planMapObj.remove(); planMapObj = null; }
-  const pts = planned.filter(p => p.lat != null && p.lng != null);
-  const map = L.map(el, { scrollWheelZoom: false });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
-  if (pts.length) {
-    const group = L.featureGroup(pts.map(p => L.marker([p.lat, p.lng]).bindPopup(`<b>${p.name}</b><br>${p.area || ""}`))).addTo(map);
-    map.fitBounds(group.getBounds().pad(0.25));
-    if (pts.length === 1) map.setZoom(14);
-  } else {
-    map.setView([36.2, 138.6], 5);
-  }
+  const pts = planned.map(p => ({ p, c: coordsOf(p) })).filter(x => x.c);
+  const map = new maplibregl.Map({
+    container: el,
+    style: "https://tiles.openfreemap.org/styles/liberty",
+    center: [138.6, 36.2], zoom: 4,
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.on("load", () => {
+    const bounds = new maplibregl.LngLatBounds();
+    pts.forEach(({ p, c }) => {
+      new maplibregl.Marker({ color: catColor(p.cat) })
+        .setLngLat([c[1], c[0]])
+        .setPopup(new maplibregl.Popup({ offset: 26 }).setHTML(`<b>${p.name}</b><br>${(CAT_META[p.cat]||{}).ru||""}${p.area ? " · " + p.area : ""}`))
+        .addTo(map);
+      bounds.extend([c[1], c[0]]);
+    });
+    if (pts.length === 1) { map.setCenter([pts[0].c[1], pts[0].c[0]]); map.setZoom(14); }
+    else if (pts.length > 1) map.fitBounds(bounds, { padding: 50, maxZoom: 14, duration: 0 });
+  });
   planMapObj = map;
-  setTimeout(() => map.invalidateSize(), 120);
 }
 function renderPlan() {
   const cont = document.getElementById("placesContainer");
@@ -1183,9 +1231,16 @@ function renderPlan() {
     cont.innerHTML = `<div class="plan-empty">Пока пусто.<br>На карточке любого места нажмите <b>«＋ В план»</b> — оно появится здесь и на карте.</div>`;
     return;
   }
-  const withCoords = planned.filter(p => p.lat != null && p.lng != null).length;
-  let html = `<div class="planmap" id="planMap"></div>
-    <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Часть кафе без координат — только в списке.</p>`;
+  const withCoords = planned.filter(p => coordsOf(p)).length;
+  const types = [...new Set(planned.map(p => p.cat))];
+  const legend = types.map(c => `<span class="leg"><span class="leg-dot" style="background:${catColor(c)}"></span>${(CAT_META[c]||{}).ru||c}</span>`).join("");
+  let html = `<div class="plan-bar">
+      <span class="plan-count">В плане: ${planned.length} ${placesWord(planned.length)}</span>
+      <button class="plan-clear" onclick="clearPlan()">${svg(TRASH_ICON)}Очистить план</button>
+    </div>
+    <div class="planmap" id="planMap"></div>
+    <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Метки окрашены по типу места.</p>
+    <div class="map-legend">${legend}</div>`;
   orderedCities().forEach(city => {
     const inCity = planned.filter(p => p.city === city);
     if (!inCity.length) return;
