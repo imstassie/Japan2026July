@@ -1476,14 +1476,24 @@ let fbUrl = localStorage.getItem("japan2026_fburl") || "";
 let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
 let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "", syncUnlocked = false;
 const syncOn = () => !!(fbUrl && fbRoom);
-function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return "h" + h; }
-const DEFAULT_PW = "1904"; // пароль по умолчанию на всех устройствах
-function effPwHash() { const s = localStorage.getItem("japan2026_syncpw"); return s === "off" ? null : (s || hashStr(DEFAULT_PW)); }
+// Хэш пароля (PBKDF2 + соль на основе комнаты). Пароль в коде НЕ хранится — хэш живёт в базе.
+async function hashPw(pw) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode("japan2026:" + (fbRoom || "")), iterations: 120000, hash: "SHA-256" }, key, 160);
+  return "p" + [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function effPw() { const s = localStorage.getItem("japan2026_syncpw"); return (!s || s === "off") ? null : s; }
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
 
 function applyRemote(data) {
-  if (!data || syncDirty) return;                 // не затираем несохранённые локальные правки
+  if (!data) return;
+  // Пароль синхронизируется через базу — обновляем локально до любых ранних выходов
+  if (Object.prototype.hasOwnProperty.call(data, "pw")) {
+    localStorage.setItem("japan2026_syncpw", data.pw ? data.pw : "off");
+  }
+  if (syncDirty) return;                           // не затираем несохранённые локальные правки
   const rv = Array.isArray(data.v) ? data.v : [];
   const rp = Array.isArray(data.p) ? data.p : null;
   const nv = new Set(rv), np = rp ? new Set(rp) : plan;
@@ -1497,7 +1507,7 @@ function applyRemote(data) {
 async function flushPush() {
   if (!syncOn() || !syncDirty) return;
   try {
-    const r = await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
+    const r = await fetch(fbEndpoint(), { method: "PATCH", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
     if (r.ok) { syncDirty = false; lastKey = stateKey(); }
   } catch (e) {}
 }
@@ -1522,7 +1532,7 @@ async function connectFirebase(url) {
   url = url.trim().replace(/\/+$/, "");
   if (!/^https:\/\//i.test(url)) throw new Error("URL должен начинаться с https://");
   const room = fbRoom || ("r" + Math.random().toString(36).slice(2, 9));
-  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
+  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PATCH", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
   if (!r.ok) throw new Error("HTTP " + r.status);
   fbUrl = url; fbRoom = room; syncDirty = false; lastKey = stateKey();
   localStorage.setItem("japan2026_fburl", fbUrl);
@@ -1555,7 +1565,7 @@ function openSyncPanel() {
       <input class="sync-input" id="fbUrlInput" placeholder="https://…firebaseio.com" />
       <button class="sync-go" onclick="doConnectFb(this)">Подключить</button>`;
   } else {
-    const pw = effPwHash();
+    const pw = effPw();
     if (pw && !syncUnlocked) {
       body.innerHTML = `<p>Синхронизация включена ✓. Ссылка скрыта паролем — введите его, чтобы показать:</p>
         <input class="sync-input" id="syncPwInput" type="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')unlockSync()" />
@@ -1583,19 +1593,27 @@ async function doConnectFb(btn) {
 }
 function doDisableSync() { disableSync(); openSyncPanel(); }
 function copySyncLink() { const i = document.getElementById("syncLinkInput"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } }
-function unlockSync() {
+async function unlockSync() {
   const v = document.getElementById("syncPwInput").value || "";
-  if (hashStr(v) === effPwHash()) { syncUnlocked = true; openSyncPanel(); }
+  const h = await hashPw(v);
+  if (h === effPw()) { syncUnlocked = true; openSyncPanel(); }
   else alert("Неверный пароль.");
 }
-function setSyncPwFromInput() {
+async function setSyncPwFromInput() {
   const v = (document.getElementById("setPwInput").value || "").trim();
   if (!v) { alert("Введите пароль."); return; }
-  localStorage.setItem("japan2026_syncpw", hashStr(v));
+  const h = await hashPw(v);
+  localStorage.setItem("japan2026_syncpw", h);
   syncUnlocked = true;
+  try { await fetch(fbEndpoint(), { method: "PATCH", body: JSON.stringify({ pw: h }) }); } catch (e) {}
   openSyncPanel();
 }
-function clearSyncPw() { localStorage.setItem("japan2026_syncpw", "off"); syncUnlocked = true; openSyncPanel(); }
+async function clearSyncPw() {
+  localStorage.setItem("japan2026_syncpw", "off");
+  syncUnlocked = true;
+  try { await fetch(fbEndpoint(), { method: "PATCH", body: JSON.stringify({ pw: null }) }); } catch (e) {}
+  openSyncPanel();
+}
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
