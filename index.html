@@ -1142,7 +1142,7 @@ let activeArea = "all";
 
 function cityAreas(city) {
   const areas = [];
-  PLACES.filter(p => p.city === city).forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+  PLACES.filter(p => p.city === city && !isShop(p)).forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
   return areas;
 }
 function renderTabs() {
@@ -1160,7 +1160,7 @@ function renderTabs() {
 function renderAreaTabs() {
   const el = document.getElementById("areaTabs");
   if (activeCity === "all" || activeCity === "plan" || activeCity === "shopping") { el.hidden = true; el.innerHTML = ""; return; }
-  const inCity = PLACES.filter(p => p.city === activeCity);
+  const inCity = PLACES.filter(p => p.city === activeCity && !isShop(p));
   let h = `<button class="areatab ${activeArea==="all"?"active":""}" onclick="setArea('all')">Все районы<span class="cnt">${inCity.length}</span></button>`;
   cityAreas(activeCity).forEach(a => {
     const n = inCity.filter(p => (p.area || "—") === a).length;
