@@ -506,8 +506,8 @@ const PLACES = [
   { id: "sushiro_shinjuku", name: "Sushiro (Синдзюку, Ясукуни-дори)", local: "スシロー 新宿靖国通り店", city: "Токио", area: "Синдзюку",
     cat: "food", why: "Конвейерные суши — недорого и быстро.",
     station: "Shinjuku", duration: "45 мин", cost: "≈1500 ¥", priority: "nice" },
-  { id: "okashi_machioka", name: "Okashi No Machioka", local: "おかしのまちおか", city: "Токио", area: "Синдзюку",
-    cat: "shopping", shop: true, why: "Магазин дешёвых сладостей и снэков.",
+  { id: "okashi_machioka", name: "Okashi No Machioka (Синдзюку зап.)", local: "おかしのまちおか 新宿西口店", city: "Токио", area: "Синдзюку",
+    cat: "food", shopToo: true, why: "Магазин дешёвых сладостей и снэков.",
     station: "Shinjuku (West)", duration: "20 мин", priority: "nice" },
   { id: "dosanko_plaza", name: "Hokkaido Dosanko Plaza (Юракутё)", local: "北海道どさんこプラザ 有楽町店", city: "Токио", area: "Юракутё",
     cat: "food", why: "Лавка продуктов Хоккайдо: сладости, в т.ч. шоколад Royce.",
@@ -523,7 +523,7 @@ const PLACES = [
     cat: "food", why: "Сеть тонкацу/теишоку — сытно и недорого.",
     station: "Higashi-Shinjuku", duration: "40 мин", cost: "≈900 ¥", priority: "nice" },
   { id: "shibuya109", name: "SHIBUYA109", local: "SHIBUYA109", city: "Токио", area: "Сибуя",
-    cat: "shopping", shop: true, why: "Культовый молл моды в Сибуе.",
+    cat: "shopping", shopToo: true, why: "Культовый молл моды в Сибуе.",
     hours: "10:00–21:00", station: "Shibuya", duration: "1 ч", priority: "nice",
     lat: 35.6595, lng: 139.6986 },
   { id: "sumida_park", name: "Парк Сумида", local: "隅田公園", city: "Токио", area: "Асакуса",
@@ -587,7 +587,7 @@ const PLACES = [
     cat: "food", why: "Знаменитая хото — местная плоская лапша в горячем мисо-бульоне с овощами. Фирменное блюдо региона.",
     station: "Kawaguchiko", duration: "45 мин", cost: "≈1200 ¥", priority: "nice" },
   { id: "gotemba_outlets", name: "Gotemba Premium Outlets", local: "御殿場プレミアム・アウトレット", city: "Фудзи", area: "Готемба",
-    cat: "shopping", shop: true, why: "Большой аутлет у подножия Фудзи: бренды со скидками, в ясную погоду — вид на гору.",
+    cat: "shopping", shopToo: true, why: "Большой аутлет у подножия Фудзи: бренды со скидками, в ясную погоду — вид на гору.",
     hours: "10:00–20:00", station: "шаттл от ст. Gotemba", duration: "3–4 ч", priority: "nice",
     lat: 35.3070, lng: 138.9650 },
 
@@ -1126,7 +1126,7 @@ function renderTabs() {
     if (!n) return;
     h += `<button class="tab ${activeCity===c?"active":""}" onclick="setCity('${c}')">${c}<span class="cnt">${n}</span></button>`;
   });
-  const shopN = PLACES.filter(isShop).length;
+  const shopN = PLACES.filter(inShopTab).length;
   h += `<button class="tab shop-tab ${activeCity==="shopping"?"active":""}" onclick="setCity('shopping')"><svg class="tabic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.shopping}</svg>Шоппинг<span class="cnt">${shopN}</span></button>`;
   h += `<button class="tab plan-tab ${activeCity==="plan"?"active":""}" onclick="setCity('plan')">★ Мой план<span class="cnt">${plan.size}</span></button>`;
   document.getElementById("cityTabs").innerHTML = h;
@@ -1160,8 +1160,10 @@ function setArea(a) {
 }
 let activeCat = "all";
 // Список в текущей области (город + район + поиск), без фильтра по типу
-// Магазины-«собирательный список»: живут только во вкладке «Шоппинг»
+// shop:true — магазин только во вкладке «Шоппинг» (в городах не показывается)
+// shopToo:true — место остаётся в своём городе И дополнительно попадает в «Шоппинг»
 const isShop = p => p.shop === true;
+const inShopTab = p => p.shop === true || p.shopToo === true;
 function scopeList() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
@@ -1358,7 +1360,7 @@ function renderShopping() {
   const cont = document.getElementById("placesContainer");
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
-  const list = PLACES.filter(p => isShop(p) && match(p));
+  const list = PLACES.filter(p => inShopTab(p) && match(p));
   document.getElementById("emptyMsg").classList.add("hidden");
   if (!list.length) {
     if (planMapObj) { planMapObj.remove(); planMapObj = null; }
