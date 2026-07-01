@@ -90,6 +90,9 @@
               color: var(--fg-soft); display: grid; place-items: center; cursor: pointer; transition: all .15s ease; }
   .sync-btn:hover { color: var(--secondary); }
   .sync-btn.on { color: #fff; background: var(--secondary); border-color: var(--secondary); }
+  .sync-btn.err { color: #fff; background: var(--destructive); border-color: var(--destructive); }
+  .sync-err { font-size: .82rem; line-height: 1.45; color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, white); border: 1px solid color-mix(in srgb, var(--destructive) 22%, white); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+  .sync-err code { background: color-mix(in srgb, var(--destructive) 14%, white); padding: 2px 5px; border-radius: 6px; }
   .sync-btn svg { width: 18px; height: 18px; }
   .sync-panel { position: fixed; inset: 0; z-index: 150; background: rgba(15,23,42,.42); display: none; align-items: center; justify-content: center; padding: 20px; }
   .sync-panel.open { display: flex; }
@@ -1474,7 +1477,7 @@ function renderShopping() {
 // ---- Синхронизация отметок «посещено» (Firebase Realtime DB — ваша бесплатная база) ----
 let fbUrl = localStorage.getItem("japan2026_fburl") || "";
 let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
-let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "";
+let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "", syncError = "";
 const syncOn = () => !!(fbUrl && fbRoom);
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
@@ -1491,12 +1494,14 @@ function applyRemote(data) {
   lastKey = key;
   updateProgress(); renderTabs(); renderPlaces();
 }
+function setSyncError(msg) { syncError = msg || ""; updateSyncBtn(); }
 async function flushPush() {
   if (!syncOn() || !syncDirty) return;
   try {
     const r = await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
-    if (r.ok) { syncDirty = false; lastKey = stateKey(); }
-  } catch (e) {}
+    if (r.ok) { syncDirty = false; lastKey = stateKey(); setSyncError(""); }
+    else setSyncError("HTTP " + r.status);
+  } catch (e) { setSyncError("нет сети"); }
 }
 function syncPush() {
   if (!syncOn()) return;
@@ -1507,7 +1512,11 @@ function syncPush() {
 async function syncPull() {
   if (!syncOn()) return;
   if (syncDirty) { flushPush(); return; }          // сначала досылаем свои изменения
-  try { const r = await fetch(fbEndpoint()); if (r.ok) applyRemote(await r.json()); } catch (e) {}
+  try {
+    const r = await fetch(fbEndpoint());
+    if (r.ok) { applyRemote(await r.json()); setSyncError(""); }
+    else setSyncError("HTTP " + r.status);
+  } catch (e) { setSyncError("нет сети"); }
 }
 function startSync() {
   clearInterval(syncTimer);
@@ -1537,7 +1546,13 @@ function disableSync() {
   localStorage.removeItem("japan2026_fburl"); localStorage.removeItem("japan2026_fbroom");
   clearInterval(syncTimer); updateSyncBtn();
 }
-function updateSyncBtn() { const b = document.getElementById("syncBtn"); if (b) b.classList.toggle("on", syncOn()); }
+function updateSyncBtn() {
+  const b = document.getElementById("syncBtn");
+  if (!b) return;
+  b.classList.toggle("on", syncOn() && !syncError);
+  b.classList.toggle("err", syncOn() && !!syncError);
+  b.title = syncError ? ("Ошибка синхронизации: " + syncError + " — проверьте правила базы Firebase") : "Синхронизация отметок между устройствами";
+}
 function fbLink() { return location.origin + location.pathname + "#fb=" + encodeURIComponent(fbUrl) + "~" + fbRoom; }
 
 function openSyncPanel() {
@@ -1555,6 +1570,7 @@ function openSyncPanel() {
     body.innerHTML = `<p>Синхронизация включена ✓. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
       <input class="sync-input" id="syncLinkInput" readonly value="${fbLink()}" onclick="this.select()" />
       <div class="sync-row"><button class="sync-go" onclick="copySyncLink()">Скопировать</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>
+      ${syncError ? `<p class="sync-err">⚠️ База не отвечает (${syncError}). Скорее всего в Firebase истёк «test mode». Откройте Realtime Database → вкладка <b>Rules</b> и поставьте:<br><code>{ "rules": { ".read": true, ".write": true } }</code><br>затем <b>Publish</b>.</p>` : ""}
       <p class="sync-note">Обновляется автоматически каждые несколько секунд и при возврате на вкладку.</p>`;
   }
   document.getElementById("syncPanel").classList.add("open");
