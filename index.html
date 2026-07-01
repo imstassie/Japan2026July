@@ -1474,11 +1474,8 @@ function renderShopping() {
 // ---- Синхронизация отметок «посещено» (Firebase Realtime DB — ваша бесплатная база) ----
 let fbUrl = localStorage.getItem("japan2026_fburl") || "";
 let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
-let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "", syncUnlocked = false;
+let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "";
 const syncOn = () => !!(fbUrl && fbRoom);
-function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return "h" + h; }
-const DEFAULT_PW = "1904"; // пароль по умолчанию на всех устройствах
-function effPwHash() { const s = localStorage.getItem("japan2026_syncpw"); return s === "off" ? null : (s || hashStr(DEFAULT_PW)); }
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
 
@@ -1536,8 +1533,8 @@ function joinFb(url, room) {
   startSync();
 }
 function disableSync() {
-  fbUrl = ""; fbRoom = ""; syncUnlocked = false;
-  localStorage.removeItem("japan2026_fburl"); localStorage.removeItem("japan2026_fbroom"); localStorage.removeItem("japan2026_syncpw");
+  fbUrl = ""; fbRoom = "";
+  localStorage.removeItem("japan2026_fburl"); localStorage.removeItem("japan2026_fbroom");
   clearInterval(syncTimer); updateSyncBtn();
 }
 function updateSyncBtn() { const b = document.getElementById("syncBtn"); if (b) b.classList.toggle("on", syncOn()); }
@@ -1555,21 +1552,10 @@ function openSyncPanel() {
       <input class="sync-input" id="fbUrlInput" placeholder="https://…firebaseio.com" />
       <button class="sync-go" onclick="doConnectFb(this)">Подключить</button>`;
   } else {
-    const pw = effPwHash();
-    if (pw && !syncUnlocked) {
-      body.innerHTML = `<p>Синхронизация включена ✓. Ссылка скрыта паролем — введите его, чтобы показать:</p>
-        <input class="sync-input" id="syncPwInput" type="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')unlockSync()" />
-        <div class="sync-row"><button class="sync-go" onclick="unlockSync()">Показать ссылку</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>`;
-    } else {
-      body.innerHTML = `<p>Синхронизация включена ✓. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
-        <input class="sync-input" id="syncLinkInput" readonly value="${fbLink()}" onclick="this.select()" />
-        <div class="sync-row"><button class="sync-go" onclick="copySyncLink()">Скопировать</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>
-        <p class="sync-note" style="margin:12px 0 6px">${pw ? "Ссылка защищена паролем." : "Скрыть ссылку паролем (по желанию):"}</p>
-        ${pw
-          ? `<button class="sync-off" onclick="clearSyncPw()">Убрать пароль</button>`
-          : `<div class="sync-row"><input class="sync-input" id="setPwInput" type="password" placeholder="Придумайте пароль" style="margin:0" onkeydown="if(event.key==='Enter')setSyncPwFromInput()" /><button class="sync-go" onclick="setSyncPwFromInput()">Поставить</button></div>`}
-        <p class="sync-note" style="margin-top:10px">Обновляется автоматически.</p>`;
-    }
+    body.innerHTML = `<p>Синхронизация включена ✓. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
+      <input class="sync-input" id="syncLinkInput" readonly value="${fbLink()}" onclick="this.select()" />
+      <div class="sync-row"><button class="sync-go" onclick="copySyncLink()">Скопировать</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>
+      <p class="sync-note">Обновляется автоматически каждые несколько секунд и при возврате на вкладку.</p>`;
   }
   document.getElementById("syncPanel").classList.add("open");
 }
@@ -1583,19 +1569,6 @@ async function doConnectFb(btn) {
 }
 function doDisableSync() { disableSync(); openSyncPanel(); }
 function copySyncLink() { const i = document.getElementById("syncLinkInput"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } }
-function unlockSync() {
-  const v = document.getElementById("syncPwInput").value || "";
-  if (hashStr(v) === effPwHash()) { syncUnlocked = true; openSyncPanel(); }
-  else alert("Неверный пароль.");
-}
-function setSyncPwFromInput() {
-  const v = (document.getElementById("setPwInput").value || "").trim();
-  if (!v) { alert("Введите пароль."); return; }
-  localStorage.setItem("japan2026_syncpw", hashStr(v));
-  syncUnlocked = true;
-  openSyncPanel();
-}
-function clearSyncPw() { localStorage.setItem("japan2026_syncpw", "off"); syncUnlocked = true; openSyncPanel(); }
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
