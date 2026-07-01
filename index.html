@@ -1074,12 +1074,13 @@ function cityAreas(city) {
   return areas;
 }
 function renderTabs() {
-  let h = `<button class="tab ${activeCity==="all"?"active":""}" onclick="setCity('all')">Все места<span class="cnt">${PLACES.length}</span></button>`;
+  let h = `<button class="tab ${activeCity==="all"?"active":""}" onclick="setCity('all')">Все места<span class="cnt">${PLACES.filter(p => !isShop(p)).length}</span></button>`;
   orderedCities().forEach(c => {
-    const n = PLACES.filter(p => p.city === c).length;
+    const n = PLACES.filter(p => p.city === c && !isShop(p)).length;
+    if (!n) return;
     h += `<button class="tab ${activeCity===c?"active":""}" onclick="setCity('${c}')">${c}<span class="cnt">${n}</span></button>`;
   });
-  const shopN = PLACES.filter(p => p.cat === "shopping").length;
+  const shopN = PLACES.filter(isShop).length;
   h += `<button class="tab shop-tab ${activeCity==="shopping"?"active":""}" onclick="setCity('shopping')"><svg class="tabic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.shopping}</svg>Шоппинг<span class="cnt">${shopN}</span></button>`;
   h += `<button class="tab plan-tab ${activeCity==="plan"?"active":""}" onclick="setCity('plan')">★ Мой план<span class="cnt">${plan.size}</span></button>`;
   document.getElementById("cityTabs").innerHTML = h;
@@ -1113,10 +1114,13 @@ function setArea(a) {
 }
 let activeCat = "all";
 // Список в текущей области (город + район + поиск), без фильтра по типу
+// Магазины-«собирательный список»: живут только во вкладке «Шоппинг»
+const isShop = p => p.shop === true;
 function scopeList() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
   return PLACES.filter(p => {
+    if (isShop(p)) return false;
     if (activeCity !== "all" && p.city !== activeCity) return false;
     if (activeCity !== "all" && activeArea !== "all" && (p.area || "—") !== activeArea) return false;
     return match(p);
@@ -1308,11 +1312,11 @@ function renderShopping() {
   const cont = document.getElementById("placesContainer");
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
-  const list = PLACES.filter(p => p.cat === "shopping" && match(p));
+  const list = PLACES.filter(p => isShop(p) && match(p));
   document.getElementById("emptyMsg").classList.add("hidden");
   if (!list.length) {
     if (planMapObj) { planMapObj.remove(); planMapObj = null; }
-    cont.innerHTML = `<div class="plan-empty">Здесь пока пусто.<br>Магазины (тип «Шопинг») собираются на этой вкладке по городам.</div>`;
+    cont.innerHTML = `<div class="plan-empty">Здесь пока пусто.<br>Собирательный список магазинов — присылай, добавлю сюда (в городах они не появятся).</div>`;
     return;
   }
   let html = `<div class="citymap" id="shopMap"></div>
