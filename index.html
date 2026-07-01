@@ -1477,6 +1477,8 @@ let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
 let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "", syncUnlocked = false;
 const syncOn = () => !!(fbUrl && fbRoom);
 function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return "h" + h; }
+const DEFAULT_PW = "1904"; // пароль по умолчанию на всех устройствах
+function effPwHash() { const s = localStorage.getItem("japan2026_syncpw"); return s === "off" ? null : (s || hashStr(DEFAULT_PW)); }
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
 
@@ -1553,7 +1555,7 @@ function openSyncPanel() {
       <input class="sync-input" id="fbUrlInput" placeholder="https://…firebaseio.com" />
       <button class="sync-go" onclick="doConnectFb(this)">Подключить</button>`;
   } else {
-    const pw = localStorage.getItem("japan2026_syncpw");
+    const pw = effPwHash();
     if (pw && !syncUnlocked) {
       body.innerHTML = `<p>Синхронизация включена ✓. Ссылка скрыта паролем — введите его, чтобы показать:</p>
         <input class="sync-input" id="syncPwInput" type="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')unlockSync()" />
@@ -1583,7 +1585,7 @@ function doDisableSync() { disableSync(); openSyncPanel(); }
 function copySyncLink() { const i = document.getElementById("syncLinkInput"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } }
 function unlockSync() {
   const v = document.getElementById("syncPwInput").value || "";
-  if (hashStr(v) === localStorage.getItem("japan2026_syncpw")) { syncUnlocked = true; openSyncPanel(); }
+  if (hashStr(v) === effPwHash()) { syncUnlocked = true; openSyncPanel(); }
   else alert("Неверный пароль.");
 }
 function setSyncPwFromInput() {
@@ -1593,7 +1595,7 @@ function setSyncPwFromInput() {
   syncUnlocked = true;
   openSyncPanel();
 }
-function clearSyncPw() { localStorage.removeItem("japan2026_syncpw"); syncUnlocked = false; openSyncPanel(); }
+function clearSyncPw() { localStorage.setItem("japan2026_syncpw", "off"); syncUnlocked = true; openSyncPanel(); }
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
