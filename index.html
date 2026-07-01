@@ -1314,6 +1314,7 @@ function renderPlaces() {
 function togglePlan(id) {
   if (plan.has(id)) plan.delete(id); else plan.add(id);
   savePlan();
+  syncPush();
   renderTabs();
   if (activeCity === "plan") { renderPlaces(); return; }
   const inp = plan.has(id);
@@ -1341,6 +1342,7 @@ function clearPlan() {
   if (!confirm("Очистить весь план? Отметки «посещено» останутся.")) return;
   plan.clear();
   savePlan();
+  syncPush();
   renderTabs();
   renderPlaces();
 }
@@ -1476,13 +1478,15 @@ let syncTs = 0, syncTimer = null, syncPushT = null;
 const syncOn = () => !!(fbUrl && fbRoom);
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 
-function syncSnapshot() { return { v: [...visited], ts: Date.now() }; }
+function syncSnapshot() { return { v: [...visited], p: [...plan], ts: Date.now() }; }
 function applyRemote(data) {
   if (!data || typeof data.ts !== "number" || data.ts <= syncTs) return;
   syncTs = data.ts;
   visited = new Set(Array.isArray(data.v) ? data.v : []);
   saveVisited();
+  if (Array.isArray(data.p)) { plan = new Set(data.p); savePlan(); }
   updateProgress();
+  renderTabs();
   renderPlaces();
 }
 function syncPush() {
