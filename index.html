@@ -1569,7 +1569,7 @@ function openSyncPanel() {
     if (pw && !syncUnlocked) {
       body.innerHTML = `<p>Синхронизация включена ✓. Ссылка скрыта паролем — введите его, чтобы показать:</p>
         <input class="sync-input" id="syncPwInput" type="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')unlockSync()" />
-        <div class="sync-row"><button class="sync-go" onclick="unlockSync()">Показать ссылку</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>`;
+        <button class="sync-go" onclick="unlockSync()">Показать ссылку</button>`;
     } else {
       body.innerHTML = `<p>Синхронизация включена ✓. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
         <input class="sync-input" id="syncLinkInput" readonly value="${fbLink()}" onclick="this.select()" />
