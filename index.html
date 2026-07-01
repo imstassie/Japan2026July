@@ -85,6 +85,25 @@
   .brand-txt h1 { font-family: var(--ff-display); font-size: 1.18rem; margin: 0; line-height: 1.1; letter-spacing: -.01em; }
   .brand-txt p { margin: 1px 0 0; font-size: .8rem; color: var(--fg-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  .topbar-right { display: flex; align-items: center; gap: 12px; flex: none; }
+  .sync-btn { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface);
+              color: var(--fg-soft); display: grid; place-items: center; cursor: pointer; transition: all .15s ease; }
+  .sync-btn:hover { color: var(--secondary); }
+  .sync-btn.on { color: #fff; background: var(--secondary); border-color: var(--secondary); }
+  .sync-btn svg { width: 18px; height: 18px; }
+  .sync-panel { position: fixed; inset: 0; z-index: 150; background: rgba(15,23,42,.42); display: none; align-items: center; justify-content: center; padding: 20px; }
+  .sync-panel.open { display: flex; }
+  .sync-card { background: var(--surface); border-radius: var(--r-lg); max-width: 430px; width: 100%; padding: 18px 18px 20px; box-shadow: var(--shadow-lg); }
+  .sync-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sync-head b { font-family: var(--ff-display); font-size: 1.12rem; }
+  .sync-x { border: 0; background: transparent; font-size: 1.05rem; cursor: pointer; color: var(--fg-muted); line-height: 1; }
+  .sync-panel p { font-size: .88rem; color: var(--fg-soft); margin: 0 0 10px; line-height: 1.45; }
+  .sync-note { font-size: .78rem; color: var(--fg-muted); }
+  .sync-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font-size: .8rem; background: var(--muted); margin-bottom: 10px; box-sizing: border-box; }
+  .sync-row { display: flex; gap: 8px; }
+  .sync-go { flex: 1; background: var(--secondary); color: #fff; border: 0; border-radius: 999px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+  .sync-off { background: color-mix(in srgb, var(--destructive) 10%, white); color: var(--destructive); border: 1px solid color-mix(in srgb, var(--destructive) 24%, white); border-radius: 999px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+
   .progress { text-align: right; flex: none; }
   .progress .pct { font-family: var(--ff-display); font-size: 1.15rem; color: var(--primary); line-height: 1; }
   .progress .lbl { font-size: .68rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -385,13 +404,25 @@
         <p id="tripSub">Июль 2026 · маршрут</p>
       </div>
     </div>
-    <div class="progress">
-      <div class="pct"><span id="visCount">0</span>/<span id="totCount">0</span></div>
-      <div class="lbl">посещено</div>
+    <div class="topbar-right">
+      <button id="syncBtn" class="sync-btn" onclick="openSyncPanel()" aria-label="Синхронизация" title="Синхронизация отметок между устройствами">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.36 2.64L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.36-2.64L3 16"/><path d="M8 16H3v5"/></svg>
+      </button>
+      <div class="progress">
+        <div class="pct"><span id="visCount">0</span>/<span id="totCount">0</span></div>
+        <div class="lbl">посещено</div>
+      </div>
     </div>
   </div>
   <div class="tabs" id="cityTabs" role="tablist"></div>
 </header>
+
+<div id="syncPanel" class="sync-panel">
+  <div class="sync-card">
+    <div class="sync-head"><b>Синхронизация устройств</b><button class="sync-x" onclick="closeSyncPanel()" aria-label="Закрыть">✕</button></div>
+    <div id="syncBody"></div>
+  </div>
+</div>
 
 <main>
   <div class="toolbar">
@@ -1111,6 +1142,7 @@ function toggle(id) {
   document.querySelectorAll(`.card[data-id="${id}"]`).forEach(c => c.classList.toggle("done"));
   document.querySelectorAll(`.card[data-id="${id}"] input[type=checkbox]`).forEach(cb => cb.checked = visited.has(id));
   updateProgress();
+  syncPush();
 }
 function updateProgress() {
   document.getElementById("visCount").textContent = PLACES.filter(p => visited.has(p.id)).length;
@@ -1433,6 +1465,80 @@ function renderShopping() {
   cont.innerHTML = html;
 }
 
+// ---- Синхронизация отметок «посещено» между устройствами (jsonblob, без аккаунта) ----
+const SYNC_API = "https://jsonblob.com/api/jsonBlob";
+let syncId = localStorage.getItem("japan2026_sync") || null;
+let syncTs = 0, syncTimer = null, syncPushT = null;
+
+function syncSnapshot() { return { v: [...visited], ts: Date.now() }; }
+function applyRemote(data) {
+  if (!data || typeof data.ts !== "number" || data.ts <= syncTs) return;
+  syncTs = data.ts;
+  visited = new Set(Array.isArray(data.v) ? data.v : []);
+  saveVisited();
+  updateProgress();
+  renderPlaces();
+}
+function syncPush() {
+  if (!syncId) return;
+  clearTimeout(syncPushT);
+  syncPushT = setTimeout(async () => {
+    const snap = syncSnapshot();
+    syncTs = snap.ts;
+    try { await fetch(`${SYNC_API}/${syncId}`, { method: "PUT", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(snap) }); } catch (e) {}
+  }, 400);
+}
+async function syncPull() {
+  if (!syncId) return;
+  try {
+    const r = await fetch(`${SYNC_API}/${syncId}`, { headers: { "Accept": "application/json" } });
+    if (r.ok) applyRemote(await r.json());
+  } catch (e) {}
+}
+function startSync() {
+  clearInterval(syncTimer);
+  syncPull();
+  syncTimer = setInterval(syncPull, 7000);
+  updateSyncBtn();
+}
+async function enableSync() {
+  const snap = syncSnapshot();
+  const r = await fetch(SYNC_API, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(snap) });
+  const loc = r.headers.get("Location") || r.headers.get("X-jsonblob") || "";
+  const id = loc.split("/").filter(Boolean).pop();
+  if (!id) throw new Error("no id");
+  syncId = id; syncTs = snap.ts;
+  localStorage.setItem("japan2026_sync", syncId);
+  startSync();
+}
+function joinSync(id) { syncId = id; syncTs = 0; localStorage.setItem("japan2026_sync", syncId); startSync(); }
+function disableSync() { syncId = null; localStorage.removeItem("japan2026_sync"); clearInterval(syncTimer); updateSyncBtn(); }
+function updateSyncBtn() { const b = document.getElementById("syncBtn"); if (b) b.classList.toggle("on", !!syncId); }
+function syncLink() { return location.origin + location.pathname + "#sync=" + syncId; }
+
+function openSyncPanel() {
+  const body = document.getElementById("syncBody");
+  if (!syncId) {
+    body.innerHTML = `<p>Сейчас отметки «посещено» хранятся только на этом устройстве. Включите синхронизацию — они будут храниться в облаке по секретной ссылке, и второе устройство, открыв её, увидит те же отметки.</p>
+      <p class="sync-note">В облако уходит только список отмеченных мест (без личных данных), сервис jsonblob.com. Доступ — по ссылке-ключу.</p>
+      <button class="sync-go" onclick="doEnableSync(this)">Включить и получить ссылку</button>`;
+  } else {
+    body.innerHTML = `<p>Синхронизация включена. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
+      <input class="sync-input" id="syncLinkInput" readonly value="${syncLink()}" onclick="this.select()"/>
+      <div class="sync-row"><button class="sync-go" onclick="copySyncLink()">Скопировать</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>
+      <p class="sync-note">Обновляется раз в несколько секунд и при возврате на вкладку.</p>`;
+  }
+  document.getElementById("syncPanel").classList.add("open");
+}
+function closeSyncPanel() { document.getElementById("syncPanel").classList.remove("open"); }
+async function doEnableSync(btn) {
+  btn.disabled = true; btn.textContent = "Включаю…";
+  try { await enableSync(); openSyncPanel(); }
+  catch (e) { btn.disabled = false; btn.textContent = "Включить и получить ссылку"; alert("Не удалось включить синхронизацию (нет сети или сервис недоступен). Можно попробовать позже."); }
+}
+function doDisableSync() { disableSync(); openSyncPanel(); }
+function copySyncLink() { const i = document.getElementById("syncLinkInput"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } }
+
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
 document.getElementById("tripSub").textContent = TRIP.subtitle;
@@ -1440,6 +1546,15 @@ renderTabs();
 renderAreaTabs();
 renderPlaces();
 updateProgress();
+
+(function initSync() {
+  const m = location.hash.match(/sync=([\w-]+)/);
+  if (m) { joinSync(m[1]); history.replaceState(null, "", location.pathname + location.search); }
+  else if (syncId) { startSync(); }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) syncPull(); });
+  updateSyncBtn();
+})();
+
 setTimeout(() => document.getElementById("splash").classList.add("hide"), 700);
 </script>
 </body>
