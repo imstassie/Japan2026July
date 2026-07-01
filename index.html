@@ -247,6 +247,13 @@
   .tab.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); box-shadow: var(--shadow-sm); }
   .tab .cnt { font-size: .8em; opacity: .7; margin-left: 5px; font-weight: 600; }
   .tabic { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+  .shoptypes { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
+  .shoptypes::-webkit-scrollbar { display: none; }
+  .shoptype { flex: none; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-soft); font-weight: 600;
+              font-size: .8rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: all .15s ease; }
+  .shoptype:hover { color: var(--cat-shopping); }
+  .shoptype.active { background: var(--cat-shopping); border-color: var(--cat-shopping); color: #fff; }
+  .shoptype .cnt { font-size: .82em; opacity: .7; margin-left: 4px; }
   .tab.shop-tab.active { background: var(--cat-shopping); border-color: var(--cat-shopping); color: #fff; }
 
   /* ---------- Вкладки районов (внутри города) ---------- */
@@ -1164,6 +1171,17 @@ let activeCat = "all";
 // shopToo:true — место остаётся в своём городе И дополнительно попадает в «Шоппинг»
 const isShop = p => p.shop === true;
 const inShopTab = p => p.shop === true || p.shopToo === true;
+// Подтип магазина (для фильтра во вкладке «Шоппинг»), по описанию
+const SHOP_TYPE = {
+  uniqlo: "Одежда", gu: "Одежда", brandoff: "Одежда", orange_street: "Одежда", america_mura: "Одежда", shibuya109: "Одежда",
+  loft: "Универсальный", hands: "Универсальный", donki: "Универсальный", caspace: "Универсальный",
+  os_drug: "Косметика/драгстор", plaza: "Косметика/драгстор",
+  daiso: "100-иен", seria: "100-иен", three_coins: "100-иен",
+  ok_store: "Супермаркет", seiyu: "Супермаркет", maruetsu: "Супермаркет",
+  mitsukoshi_ginza: "Универмаг/ТЦ", aeon: "Универмаг/ТЦ", gotemba_outlets: "Универмаг/ТЦ",
+  itoya: "Канцелярия", lindt: "Еда/сладости", okashi_machioka: "Еда/сладости", disney_store: "Игрушки",
+};
+const SHOP_TYPE_ORDER = ["Одежда", "Универсальный", "Косметика/драгстор", "100-иен", "Супермаркет", "Универмаг/ТЦ", "Еда/сладости", "Канцелярия", "Игрушки"];
 function scopeList() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
@@ -1356,20 +1374,31 @@ function renderPlan() {
 }
 
 // ---- Вкладка «Шоппинг»: все магазины по городам ----
+let activeShopType = "all";
+function setShopType(t) { activeShopType = t; renderShopping(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function renderShopping() {
   const cont = document.getElementById("placesContainer");
+  if (planMapObj) { planMapObj.remove(); planMapObj = null; }
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
-  const list = PLACES.filter(p => inShopTab(p) && match(p));
+  const styp = p => p.stype || SHOP_TYPE[p.id] || "Прочее";
+  const base = PLACES.filter(p => inShopTab(p) && match(p));
   document.getElementById("emptyMsg").classList.add("hidden");
-  if (!list.length) {
-    if (planMapObj) { planMapObj.remove(); planMapObj = null; }
-    cont.innerHTML = `<div class="plan-empty">Здесь пока пусто.<br>Собирательный список магазинов — присылай, добавлю сюда (в городах они не появятся).</div>`;
+  if (!base.length) {
+    cont.innerHTML = `<div class="plan-empty">Здесь пока пусто.<br>Собирательный список магазинов — присылай, добавлю сюда.</div>`;
     return;
   }
-  const onMap = list.filter(p => coordsOf(p)).length;
-  let html = `<div class="citymap" id="shopMap"></div>
-    <p class="plan-note">Собирательный список магазинов — ${list.length} ${placesWord(list.length)}. На карте: ${onMap} (у сетей часто нет одной точки). Наведите/нажмите метку, чтобы добавить в план.</p>`;
+  // Фильтр по подтипу
+  const present = SHOP_TYPE_ORDER.filter(t => base.some(p => styp(p) === t));
+  base.forEach(p => { const t = styp(p); if (!present.includes(t)) present.push(t); });
+  let chips = `<button class="shoptype ${activeShopType==="all"?"active":""}" onclick="setShopType('all')">Все<span class="cnt">${base.length}</span></button>`;
+  present.forEach(t => {
+    const n = base.filter(p => styp(p) === t).length;
+    chips += `<button class="shoptype ${activeShopType===t?"active":""}" onclick="setShopType('${t.replace(/'/g, "\\'")}')">${t}<span class="cnt">${n}</span></button>`;
+  });
+  const list = base.filter(p => activeShopType === "all" || styp(p) === activeShopType);
+
+  let html = `<nav class="shoptypes" aria-label="Тип магазина">${chips}</nav>`;
   const grp = p => p.shopCity || p.city || "Прочее";
   const cities = [];
   list.forEach(p => { const c = grp(p); if (!cities.includes(c)) cities.push(c); });
@@ -1383,7 +1412,6 @@ function renderShopping() {
     </section>`;
   });
   cont.innerHTML = html;
-  renderMap("shopMap", list);
 }
 
 // init
