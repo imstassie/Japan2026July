@@ -714,7 +714,7 @@ const PLACES = [
   { id: "brandoff", name: "BRAND OFF", local: "ブランドオフ", city: "Сети", cat: "shopping", shop: true,
     why: "Секонд-люкс: подержанные брендовые сумки, часы и аксессуары в хорошем состоянии." },
   { id: "caspace", name: "Cas:pace", local: "", city: "Сети", cat: "shopping", shop: true,
-    why: "Магазин модных мелочей и аксессуаров (уточни профиль — поправлю описание)." },
+    why: "Магазин аксессуаров для телефонов: чехлы, ремешки, попсокеты, зарядки." },
   { id: "os_drug", name: "OS Drug", local: "オーエスドラッグ", city: "Сети", cat: "shopping", shop: true,
     why: "Дискаунт-аптека, известная очень низкими ценами на косметику и уход." },
   { id: "daiso", name: "Daiso", local: "ダイソー", city: "Сети", cat: "shopping", shop: true,
@@ -1174,14 +1174,14 @@ const inShopTab = p => p.shop === true || p.shopToo === true;
 // Подтип магазина (для фильтра во вкладке «Шоппинг»), по описанию
 const SHOP_TYPE = {
   uniqlo: "Одежда", gu: "Одежда", brandoff: "Одежда", orange_street: "Одежда", america_mura: "Одежда", shibuya109: "Одежда",
-  loft: "Универсальный", hands: "Универсальный", donki: "Универсальный", caspace: "Универсальный",
+  loft: "Универсальный", hands: "Универсальный", donki: "Универсальный", caspace: "Аксессуары",
   os_drug: "Косметика/драгстор", plaza: "Косметика/драгстор",
   daiso: "100-иен", seria: "100-иен", three_coins: "100-иен",
   ok_store: "Супермаркет", seiyu: "Супермаркет", maruetsu: "Супермаркет",
   mitsukoshi_ginza: "Универмаг/ТЦ", aeon: "Универмаг/ТЦ", gotemba_outlets: "Универмаг/ТЦ",
   itoya: "Канцелярия", lindt: "Еда/сладости", okashi_machioka: "Еда/сладости", disney_store: "Игрушки",
 };
-const SHOP_TYPE_ORDER = ["Одежда", "Универсальный", "Косметика/драгстор", "100-иен", "Супермаркет", "Универмаг/ТЦ", "Еда/сладости", "Канцелярия", "Игрушки"];
+const SHOP_TYPE_ORDER = ["Одежда", "Универсальный", "Аксессуары", "Косметика/драгстор", "100-иен", "Супермаркет", "Универмаг/ТЦ", "Еда/сладости", "Канцелярия", "Игрушки"];
 function scopeList() {
   const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
   const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
