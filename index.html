@@ -1474,31 +1474,39 @@ function renderShopping() {
 // ---- Синхронизация отметок «посещено» (Firebase Realtime DB — ваша бесплатная база) ----
 let fbUrl = localStorage.getItem("japan2026_fburl") || "";
 let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
-let syncTs = 0, syncTimer = null, syncPushT = null;
+let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "";
 const syncOn = () => !!(fbUrl && fbRoom);
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
+function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
 
-function syncSnapshot() { return { v: [...visited], p: [...plan], ts: Date.now() }; }
 function applyRemote(data) {
-  if (!data || typeof data.ts !== "number" || data.ts <= syncTs) return;
-  syncTs = data.ts;
-  visited = new Set(Array.isArray(data.v) ? data.v : []);
-  saveVisited();
-  if (Array.isArray(data.p)) { plan = new Set(data.p); savePlan(); }
-  updateProgress();
-  renderTabs();
-  renderPlaces();
+  if (!data || syncDirty) return;                 // не затираем несохранённые локальные правки
+  const rv = Array.isArray(data.v) ? data.v : [];
+  const rp = Array.isArray(data.p) ? data.p : null;
+  const nv = new Set(rv), np = rp ? new Set(rp) : plan;
+  const key = JSON.stringify([[...nv].sort(), [...np].sort()]);
+  if (key === lastKey) return;                    // изменений нет
+  visited = nv; saveVisited();
+  if (rp) { plan = np; savePlan(); }
+  lastKey = key;
+  updateProgress(); renderTabs(); renderPlaces();
+}
+async function flushPush() {
+  if (!syncOn() || !syncDirty) return;
+  try {
+    const r = await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
+    if (r.ok) { syncDirty = false; lastKey = stateKey(); }
+  } catch (e) {}
 }
 function syncPush() {
   if (!syncOn()) return;
+  syncDirty = true;
   clearTimeout(syncPushT);
-  syncPushT = setTimeout(async () => {
-    const snap = syncSnapshot(); syncTs = snap.ts;
-    try { await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify(snap) }); } catch (e) {}
-  }, 400);
+  syncPushT = setTimeout(flushPush, 400);
 }
 async function syncPull() {
   if (!syncOn()) return;
+  if (syncDirty) { flushPush(); return; }          // сначала досылаем свои изменения
   try { const r = await fetch(fbEndpoint()); if (r.ok) applyRemote(await r.json()); } catch (e) {}
 }
 function startSync() {
@@ -1511,16 +1519,15 @@ async function connectFirebase(url) {
   url = url.trim().replace(/\/+$/, "");
   if (!/^https:\/\//i.test(url)) throw new Error("URL должен начинаться с https://");
   const room = fbRoom || ("r" + Math.random().toString(36).slice(2, 9));
-  const snap = syncSnapshot();
-  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", body: JSON.stringify(snap) });
+  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
   if (!r.ok) throw new Error("HTTP " + r.status);
-  fbUrl = url; fbRoom = room; syncTs = snap.ts;
+  fbUrl = url; fbRoom = room; syncDirty = false; lastKey = stateKey();
   localStorage.setItem("japan2026_fburl", fbUrl);
   localStorage.setItem("japan2026_fbroom", fbRoom);
   startSync();
 }
 function joinFb(url, room) {
-  fbUrl = url.replace(/\/+$/, ""); fbRoom = room; syncTs = 0;
+  fbUrl = url.replace(/\/+$/, ""); fbRoom = room; syncDirty = false; lastKey = "";
   localStorage.setItem("japan2026_fburl", fbUrl);
   localStorage.setItem("japan2026_fbroom", fbRoom);
   startSync();
