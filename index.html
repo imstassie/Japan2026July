@@ -1481,11 +1481,20 @@ let syncTimer = null, syncPushT = null, syncDirty = false, lastKey = "", syncErr
 const syncOn = () => !!(fbUrl && fbRoom);
 function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 function stateKey() { return JSON.stringify([[...visited].sort(), [...plan].sort()]); }
+// Всё состояние храним ОДНОЙ строкой: Firebase выбрасывает пустые массивы,
+// поэтому очистка плана (p:[]) иначе не доезжала бы до второго устройства.
+function statePayload() { return { s: JSON.stringify({ v: [...visited], p: [...plan] }) }; }
 
 function applyRemote(data) {
   if (!data || syncDirty) return;                 // не затираем несохранённые локальные правки
-  const rv = Array.isArray(data.v) ? data.v : [];
-  const rp = Array.isArray(data.p) ? data.p : null;
+  let rv = [], rp = null;
+  if (typeof data.s === "string") {               // новый формат: строка
+    try { const o = JSON.parse(data.s); rv = Array.isArray(o.v) ? o.v : []; rp = Array.isArray(o.p) ? o.p : []; }
+    catch (e) { return; }
+  } else {                                        // старый формат: отдельные массивы (совместимость)
+    rv = Array.isArray(data.v) ? data.v : [];
+    rp = Array.isArray(data.p) ? data.p : null;
+  }
   const nv = new Set(rv), np = rp ? new Set(rp) : plan;
   const key = JSON.stringify([[...nv].sort(), [...np].sort()]);
   if (key === lastKey) return;                    // изменений нет
@@ -1498,7 +1507,7 @@ function setSyncError(msg) { syncError = msg || ""; updateSyncBtn(); }
 async function flushPush() {
   if (!syncOn() || !syncDirty) return;
   try {
-    const r = await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
+    const r = await fetch(fbEndpoint(), { method: "PUT", body: JSON.stringify(statePayload()) });
     if (r.ok) { syncDirty = false; lastKey = stateKey(); setSyncError(""); }
     else setSyncError("HTTP " + r.status);
   } catch (e) { setSyncError("нет сети"); }
@@ -1528,7 +1537,7 @@ async function connectFirebase(url) {
   url = url.trim().replace(/\/+$/, "");
   if (!/^https:\/\//i.test(url)) throw new Error("URL должен начинаться с https://");
   const room = fbRoom || ("r" + Math.random().toString(36).slice(2, 9));
-  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", body: JSON.stringify({ v: [...visited], p: [...plan] }) });
+  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", body: JSON.stringify(statePayload()) });
   if (!r.ok) throw new Error("HTTP " + r.status);
   fbUrl = url; fbRoom = room; syncDirty = false; lastKey = stateKey();
   localStorage.setItem("japan2026_fburl", fbUrl);
