@@ -246,6 +246,8 @@
   .tab:hover { color: var(--primary); }
   .tab.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); box-shadow: var(--shadow-sm); }
   .tab .cnt { font-size: .8em; opacity: .7; margin-left: 5px; font-weight: 600; }
+  .tabic { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+  .tab.shop-tab.active { background: var(--cat-shopping); border-color: var(--cat-shopping); color: #fff; }
 
   /* ---------- Вкладки районов (внутри города) ---------- */
   .areatabs { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 4px; margin-bottom: 4px; scrollbar-width: none; }
@@ -1077,12 +1079,14 @@ function renderTabs() {
     const n = PLACES.filter(p => p.city === c).length;
     h += `<button class="tab ${activeCity===c?"active":""}" onclick="setCity('${c}')">${c}<span class="cnt">${n}</span></button>`;
   });
+  const shopN = PLACES.filter(p => p.cat === "shopping").length;
+  h += `<button class="tab shop-tab ${activeCity==="shopping"?"active":""}" onclick="setCity('shopping')"><svg class="tabic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.shopping}</svg>Шоппинг<span class="cnt">${shopN}</span></button>`;
   h += `<button class="tab plan-tab ${activeCity==="plan"?"active":""}" onclick="setCity('plan')">★ Мой план<span class="cnt">${plan.size}</span></button>`;
   document.getElementById("cityTabs").innerHTML = h;
 }
 function renderAreaTabs() {
   const el = document.getElementById("areaTabs");
-  if (activeCity === "all" || activeCity === "plan") { el.hidden = true; el.innerHTML = ""; return; }
+  if (activeCity === "all" || activeCity === "plan" || activeCity === "shopping") { el.hidden = true; el.innerHTML = ""; return; }
   const inCity = PLACES.filter(p => p.city === activeCity);
   let h = `<button class="areatab ${activeArea==="all"?"active":""}" onclick="setArea('all')">Все районы<span class="cnt">${inCity.length}</span></button>`;
   cityAreas(activeCity).forEach(a => {
@@ -1140,6 +1144,7 @@ function placesWord(n) {
 function renderPlaces() {
   const catEl = document.getElementById("catTabs");
   if (activeCity === "plan") { catEl.hidden = true; renderPlan(); return; }
+  if (activeCity === "shopping") { catEl.hidden = true; renderShopping(); return; }
   catEl.hidden = false;
   const base = scopeList();
   renderCatTabs(base);
@@ -1296,6 +1301,39 @@ function renderPlan() {
   });
   cont.innerHTML = html;
   renderMap("planMap", planned);
+}
+
+// ---- Вкладка «Шоппинг»: все магазины по городам ----
+function renderShopping() {
+  const cont = document.getElementById("placesContainer");
+  const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
+  const match = p => !q || `${p.name} ${p.local||""} ${p.area||""} ${p.city} ${(CAT_META[p.cat]||{}).ru||""} ${p.why||""}`.toLowerCase().includes(q);
+  const list = PLACES.filter(p => p.cat === "shopping" && match(p));
+  document.getElementById("emptyMsg").classList.add("hidden");
+  if (!list.length) {
+    if (planMapObj) { planMapObj.remove(); planMapObj = null; }
+    cont.innerHTML = `<div class="plan-empty">Здесь пока пусто.<br>Магазины (тип «Шопинг») собираются на этой вкладке по городам.</div>`;
+    return;
+  }
+  let html = `<div class="citymap" id="shopMap"></div>
+    <p class="plan-note">Все магазины по городам — ${list.length} ${placesWord(list.length)}. Наведите/нажмите метку, чтобы добавить в план.</p>`;
+  orderedCities().forEach(city => {
+    const inCity = list.filter(p => p.city === city);
+    if (!inCity.length) return;
+    const areas = [];
+    inCity.forEach(p => { const a = p.area || "—"; if (!areas.includes(a)) areas.push(a); });
+    const body = areas.map(a => {
+      const cards = inCity.filter(p => (p.area || "—") === a);
+      return `<div class="area-sec"><h3 class="area-head">${svg(PIN_ICON)}${a}<span class="acnt">${cards.length}</span></h3><div class="grid">${cards.map(p => placeCard(p)).join("")}</div></div>`;
+    }).join("");
+    const hotel = CITY_HOTEL[city];
+    html += `<section class="city-sec">
+      <div class="city-head"><h2>${city}</h2><span class="city-cnt">${inCity.length} ${placesWord(inCity.length)}</span>${hotel ? `<a class="city-hotel" href="${mapsLink(hotel)}" target="_blank" rel="noopener">${svg(BED_ICON)}${hotel.name}</a>` : ""}</div>
+      ${body}
+    </section>`;
+  });
+  cont.innerHTML = html;
+  renderMap("shopMap", list);
 }
 
 // init
