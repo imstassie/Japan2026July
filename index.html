@@ -99,6 +99,10 @@
   .sync-x { border: 0; background: transparent; font-size: 1.05rem; cursor: pointer; color: var(--fg-muted); line-height: 1; }
   .sync-panel p { font-size: .88rem; color: var(--fg-soft); margin: 0 0 10px; line-height: 1.45; }
   .sync-note { font-size: .78rem; color: var(--fg-muted); }
+  .sync-steps { margin: 0 0 12px; padding-left: 20px; }
+  .sync-steps li { font-size: .84rem; color: var(--fg-soft); margin-bottom: 7px; line-height: 1.4; }
+  .sync-steps a { color: var(--secondary); font-weight: 600; }
+  .sync-steps code { background: var(--muted); padding: 1px 5px; border-radius: 5px; font-size: .82em; border: 1px solid var(--border); }
   .sync-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font-size: .8rem; background: var(--muted); margin-bottom: 10px; box-sizing: border-box; }
   .sync-row { display: flex; gap: 8px; }
   .sync-go { flex: 1; background: var(--secondary); color: #fff; border: 0; border-radius: 999px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
@@ -1465,10 +1469,12 @@ function renderShopping() {
   cont.innerHTML = html;
 }
 
-// ---- Синхронизация отметок «посещено» между устройствами (jsonblob, без аккаунта) ----
-const SYNC_API = "https://json.extendsclass.com/bin";
-let syncId = localStorage.getItem("japan2026_sync") || null;
+// ---- Синхронизация отметок «посещено» (Firebase Realtime DB — ваша бесплатная база) ----
+let fbUrl = localStorage.getItem("japan2026_fburl") || "";
+let fbRoom = localStorage.getItem("japan2026_fbroom") || "";
 let syncTs = 0, syncTimer = null, syncPushT = null;
+const syncOn = () => !!(fbUrl && fbRoom);
+function fbEndpoint() { return `${fbUrl}/japan2026/${fbRoom}.json`; }
 
 function syncSnapshot() { return { v: [...visited], ts: Date.now() }; }
 function applyRemote(data) {
@@ -1480,87 +1486,78 @@ function applyRemote(data) {
   renderPlaces();
 }
 function syncPush() {
-  if (!syncId) return;
+  if (!syncOn()) return;
   clearTimeout(syncPushT);
   syncPushT = setTimeout(async () => {
-    const snap = syncSnapshot();
-    syncTs = snap.ts;
-    try { await fetch(`${SYNC_API}/${syncId}`, { method: "PUT", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(snap) }); } catch (e) {}
+    const snap = syncSnapshot(); syncTs = snap.ts;
+    try { await fetch(fbEndpoint(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snap) }); } catch (e) {}
   }, 400);
 }
 async function syncPull() {
-  if (!syncId) return;
-  try {
-    const r = await fetch(`${SYNC_API}/${syncId}`, { headers: { "Accept": "application/json" } });
-    if (r.ok) applyRemote(await r.json());
-  } catch (e) {}
+  if (!syncOn()) return;
+  try { const r = await fetch(fbEndpoint()); if (r.ok) applyRemote(await r.json()); } catch (e) {}
 }
 function startSync() {
   clearInterval(syncTimer);
   syncPull();
-  syncTimer = setInterval(syncPull, 7000);
+  syncTimer = setInterval(syncPull, 6000);
   updateSyncBtn();
 }
-async function enableSync() {
+async function connectFirebase(url) {
+  url = url.trim().replace(/\/+$/, "");
+  if (!/^https:\/\//i.test(url)) throw new Error("URL должен начинаться с https://");
+  const room = fbRoom || ("r" + Math.random().toString(36).slice(2, 9));
   const snap = syncSnapshot();
-  const r = await fetch(SYNC_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snap) });
-  if (!r.ok) throw new Error("post failed " + r.status);
-  const j = await r.json().catch(() => ({}));
-  const id = j.id || (j.uri ? j.uri.split("/").filter(Boolean).pop() : (r.headers.get("Bin-Id") || "").trim());
-  if (!id) throw new Error("no id");
-  syncId = id; syncTs = snap.ts;
-  localStorage.setItem("japan2026_sync", syncId);
+  const r = await fetch(`${url}/japan2026/${room}.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snap) });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  fbUrl = url; fbRoom = room; syncTs = snap.ts;
+  localStorage.setItem("japan2026_fburl", fbUrl);
+  localStorage.setItem("japan2026_fbroom", fbRoom);
   startSync();
 }
-function joinSync(id) { syncId = id; syncTs = 0; localStorage.setItem("japan2026_sync", syncId); startSync(); }
-function disableSync() { syncId = null; localStorage.removeItem("japan2026_sync"); clearInterval(syncTimer); updateSyncBtn(); }
-function updateSyncBtn() { const b = document.getElementById("syncBtn"); if (b) b.classList.toggle("on", !!syncId); }
-function syncLink() { return location.origin + location.pathname + "#sync=" + syncId; }
+function joinFb(url, room) {
+  fbUrl = url.replace(/\/+$/, ""); fbRoom = room; syncTs = 0;
+  localStorage.setItem("japan2026_fburl", fbUrl);
+  localStorage.setItem("japan2026_fbroom", fbRoom);
+  startSync();
+}
+function disableSync() {
+  fbUrl = ""; fbRoom = "";
+  localStorage.removeItem("japan2026_fburl"); localStorage.removeItem("japan2026_fbroom");
+  clearInterval(syncTimer); updateSyncBtn();
+}
+function updateSyncBtn() { const b = document.getElementById("syncBtn"); if (b) b.classList.toggle("on", syncOn()); }
+function fbLink() { return location.origin + location.pathname + "#fb=" + encodeURIComponent(fbUrl) + "~" + fbRoom; }
 
 function openSyncPanel() {
   const body = document.getElementById("syncBody");
-  if (!syncId) {
-    body.innerHTML = `<p><b>Способ 1 — онлайн.</b> Отметки хранятся в облаке по секретной ссылке; второе устройство открывает её и видит те же отметки (обновление автоматически).</p>
-      <button class="sync-go" onclick="doEnableSync(this)">Включить и получить ссылку</button>
-      <p class="sync-note" style="margin:8px 0 0">Уходит только список отмеченных мест, без личных данных.</p>
-      <hr style="border:0;border-top:1px solid var(--border);margin:16px 0"/>
-      <p><b>Способ 2 — кодом, без интернета.</b> Скопируйте код и вставьте на другом устройстве (отметки добавятся).</p>
-      <div class="sync-row"><button class="sync-go" style="background:color-mix(in srgb,var(--secondary) 10%,white);color:var(--secondary);border:1px solid color-mix(in srgb,var(--secondary) 24%,white)" onclick="copyCode(this)">Скопировать код</button></div>
-      <input class="sync-input" id="syncCodeInput" placeholder="Вставьте код с другого устройства" style="margin-top:10px"/>
-      <button class="sync-go" onclick="applyCode()">Применить код</button>`;
+  if (!syncOn()) {
+    body.innerHTML = `<p>Автосинхронизация через вашу бесплатную базу <b>Firebase</b> (настройка ~3 мин, без банковской карты). Дальше отметки «посещено» обновляются между устройствами сами. В базу уходит только список отмеченных мест.</p>
+      <ol class="sync-steps">
+        <li>Откройте <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> → <b>Add project</b> (Google Analytics можно пропустить).</li>
+        <li>Слева <b>Build → Realtime Database → Create Database</b> → регион любой → <b>Start in test mode</b> → Enable.</li>
+        <li>Скопируйте адрес базы сверху (<code>https://…-default-rtdb.firebaseio.com</code>) и вставьте сюда:</li>
+      </ol>
+      <input class="sync-input" id="fbUrlInput" placeholder="https://…firebaseio.com" />
+      <button class="sync-go" onclick="doConnectFb(this)">Подключить</button>`;
   } else {
-    body.innerHTML = `<p>Синхронизация включена. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
-      <input class="sync-input" id="syncLinkInput" readonly value="${syncLink()}" onclick="this.select()"/>
+    body.innerHTML = `<p>Синхронизация включена ✓. Откройте эту ссылку на втором устройстве — отметки станут общими:</p>
+      <input class="sync-input" id="syncLinkInput" readonly value="${fbLink()}" onclick="this.select()" />
       <div class="sync-row"><button class="sync-go" onclick="copySyncLink()">Скопировать</button><button class="sync-off" onclick="doDisableSync()">Отключить</button></div>
-      <p class="sync-note">Обновляется раз в несколько секунд и при возврате на вкладку.</p>`;
+      <p class="sync-note">Обновляется автоматически каждые несколько секунд и при возврате на вкладку.</p>`;
   }
   document.getElementById("syncPanel").classList.add("open");
 }
 function closeSyncPanel() { document.getElementById("syncPanel").classList.remove("open"); }
-async function doEnableSync(btn) {
-  btn.disabled = true; btn.textContent = "Включаю…";
-  try { await enableSync(); openSyncPanel(); }
-  catch (e) { btn.disabled = false; btn.textContent = "Включить и получить ссылку"; alert("Не удалось включить синхронизацию (нет сети или сервис недоступен). Можно попробовать позже."); }
+async function doConnectFb(btn) {
+  const url = (document.getElementById("fbUrlInput").value || "").trim();
+  if (!url) { alert("Вставьте адрес базы Firebase."); return; }
+  btn.disabled = true; btn.textContent = "Подключаю…";
+  try { await connectFirebase(url); openSyncPanel(); }
+  catch (e) { btn.disabled = false; btn.textContent = "Подключить"; alert("Не удалось подключиться (" + (e.message || e) + ").\nПроверьте адрес базы и что в Realtime Database выбран Test mode (правила разрешают запись)."); }
 }
 function doDisableSync() { disableSync(); openSyncPanel(); }
 function copySyncLink() { const i = document.getElementById("syncLinkInput"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } }
-function copyCode(btn) {
-  const code = btoa(unescape(encodeURIComponent(JSON.stringify([...visited]))));
-  try { navigator.clipboard.writeText(code); } catch (e) {}
-  const t = btn.textContent; btn.textContent = "Скопировано ✓"; setTimeout(() => btn.textContent = t, 1500);
-}
-function applyCode() {
-  const el = document.getElementById("syncCodeInput"); const s = (el.value || "").trim();
-  if (!s) return;
-  try {
-    const arr = JSON.parse(decodeURIComponent(escape(atob(s))));
-    if (!Array.isArray(arr)) throw 0;
-    arr.forEach(id => visited.add(id));
-    saveVisited(); updateProgress(); renderPlaces(); syncPush();
-    closeSyncPanel();
-    alert("Код применён — отметки добавлены.");
-  } catch (e) { alert("Не удалось прочитать код."); }
-}
 
 // init
 document.getElementById("tripTitle").textContent = TRIP.title;
@@ -1571,9 +1568,9 @@ renderPlaces();
 updateProgress();
 
 (function initSync() {
-  const m = location.hash.match(/sync=([\w-]+)/);
-  if (m) { joinSync(m[1]); history.replaceState(null, "", location.pathname + location.search); }
-  else if (syncId) { startSync(); }
+  const mf = location.hash.match(/fb=([^~]+)~([\w-]+)/);
+  if (mf) { joinFb(decodeURIComponent(mf[1]), mf[2]); history.replaceState(null, "", location.pathname + location.search); }
+  else if (syncOn()) { startSync(); }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) syncPull(); });
   updateSyncBtn();
 })();
