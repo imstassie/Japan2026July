@@ -1268,7 +1268,7 @@ function renderPlaces() {
     </section>`;
   });
 
-  const showMap = activeCity !== "all" && any;
+  const showMap = any;
   document.getElementById("placesContainer").innerHTML = (showMap ? `<div class="citymap" id="cityMap"></div>` : "") + html;
   document.getElementById("emptyMsg").classList.toggle("hidden", any);
   if (showMap) renderMap("cityMap", visible);
