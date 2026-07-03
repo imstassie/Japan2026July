@@ -43,6 +43,7 @@
     --cat-shopping: #DB2777;
     --cat-view: #0EA5E9;
     --cat-landmark: #EA580C;
+    --cat-fun: #4F46E5;
     --cat-other: #64748B;
   }
 
@@ -820,7 +821,7 @@ const PLACES = [
     hours: "~11:00–19:00", station: "Yotsubashi / Shinsaibashi", duration: "1 ч", cost: "≈700–1000 ¥", priority: "nice",
     lat: 34.6766584, lng: 135.4973198 },
   { id: "round1_sennichimae", name: "Round1 Stadium Sennichimae", local: "ラウンドワンスタジアム 千日前店", city: "Осака", area: "Намба",
-    cat: "landmark", why: "Большой развлекательный комплекс: боулинг, аркады, караоке, спорт-аттракционы (спорт-челленджи на крыше). Отлично на вечер или в дождь.",
+    cat: "fun", why: "Большой развлекательный комплекс: боулинг, аркады, караоке, спорт-аттракционы (спорт-челленджи на крыше). Отлично на вечер или в дождь.",
     hours: "круглосуточно (уточняйте по зонам)", station: "Namba / Nippombashi", duration: "1.5–2 ч", cost: "по активностям", priority: "nice",
     lat: 34.6650, lng: 135.5030 },
 
@@ -1011,6 +1012,7 @@ const CAT_META = {
   shopping: { ru: "Шопинг",    v: "shopping" },
   view:     { ru: "Смотровая", v: "view"     },
   landmark: { ru: "Достопримечательность", v: "landmark" },
+  fun:      { ru: "Развлечения", v: "fun"     },
   other:    { ru: "Другое",    v: "other"    },
 };
 const ICONS = {
@@ -1021,6 +1023,7 @@ const ICONS = {
   shopping: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
   view:     '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
   landmark: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  fun:      '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/>',
   other:    '<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>',
   meal:     '<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
   transit:  '<path d="M8 3h8a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM4 11h16M8 19l-2 3M16 19l2 3"/><circle cx="8.5" cy="15.5" r="1"/><circle cx="15.5" cy="15.5" r="1"/>',
@@ -1045,7 +1048,7 @@ let cityMarkers = {};
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 // Цвета меток по типу места (совпадают с --cat-*)
-const CAT_COLORS = { temple:"#0891B2", food:"#D97706", nature:"#16A34A", museum:"#7C3AED", shopping:"#DB2777", view:"#0EA5E9", landmark:"#EA580C", other:"#64748B" };
+const CAT_COLORS = { temple:"#0891B2", food:"#D97706", nature:"#16A34A", museum:"#7C3AED", shopping:"#DB2777", view:"#0EA5E9", landmark:"#EA580C", fun:"#4F46E5", other:"#64748B" };
 function catColor(c) { return CAT_COLORS[c] || CAT_COLORS.other; }
 
 // Приблизительные координаты для кафе/ресторанов без точных координат (только для меток на карте;
