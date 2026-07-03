@@ -1050,6 +1050,13 @@ const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 // Цвета меток по типу места (совпадают с --cat-*)
 const CAT_COLORS = { temple:"#0891B2", food:"#D97706", nature:"#16A34A", museum:"#7C3AED", shopping:"#DB2777", view:"#0EA5E9", landmark:"#EAB308", fun:"#DC2626", other:"#64748B" };
 function catColor(c) { return CAT_COLORS[c] || CAT_COLORS.other; }
+// Легенда под картой: цвет → тип (только типы, реально показанные метками, в порядке CAT_META)
+function catLegend(places) {
+  const present = new Set(places.filter(p => coordsOf(p)).map(p => p.cat));
+  const items = Object.keys(CAT_META).filter(c => present.has(c))
+    .map(c => `<span class="leg"><span class="leg-dot" style="background:${catColor(c)}"></span>${CAT_META[c].ru}</span>`).join("");
+  return items ? `<div class="map-legend">${items}</div>` : "";
+}
 
 // Приблизительные координаты для кафе/ресторанов без точных координат (только для меток на карте;
 // кнопка «В картах» у них ищет по точному названию). Уровень — район/станция.
@@ -1397,7 +1404,7 @@ function renderPlaces() {
   });
 
   const showMap = any;
-  document.getElementById("placesContainer").innerHTML = (showMap ? `<div class="citymap" id="cityMap"></div>` : "") + html;
+  document.getElementById("placesContainer").innerHTML = (showMap ? `<div class="citymap" id="cityMap"></div>` + catLegend(visible) : "") + html;
   document.getElementById("emptyMsg").classList.toggle("hidden", any);
   if (showMap) renderMap("cityMap", visible);
 }
@@ -1492,15 +1499,13 @@ function renderPlan() {
     return;
   }
   const withCoords = planned.filter(p => coordsOf(p)).length;
-  const types = [...new Set(planned.map(p => p.cat))];
-  const legend = types.map(c => `<span class="leg"><span class="leg-dot" style="background:${catColor(c)}"></span>${(CAT_META[c]||{}).ru||c}</span>`).join("");
   let html = `<div class="plan-bar">
       <span class="plan-count">В плане: ${planned.length} ${placesWord(planned.length)}</span>
       <button class="plan-clear" onclick="clearPlan()">${svg(TRASH_ICON)}Очистить план</button>
     </div>
     <div class="planmap" id="planMap"></div>
     <p class="plan-note">На карте: ${withCoords} из ${planned.length}. Наведите/нажмите метку, чтобы убрать из плана. Метки окрашены по типу.</p>
-    <div class="map-legend">${legend}</div>`;
+    ${catLegend(planned)}`;
   orderedCities().forEach(city => {
     const inCity = planned.filter(p => p.city === city);
     if (!inCity.length) return;
